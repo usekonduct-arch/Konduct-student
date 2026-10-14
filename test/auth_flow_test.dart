@@ -9,6 +9,7 @@ import 'package:konduct_student/auth/auth_repository.dart';
 import 'package:konduct_student/auth/demo_auth_repository.dart';
 import 'package:konduct_student/auth/screens/pin_screen.dart';
 import 'package:konduct_student/ui/kit.dart';
+import 'package:konduct_student/wallet/demo_rider_api.dart';
 
 Future<void> settle(WidgetTester t, [int ms = 1200]) async {
   for (var i = 0; i < ms ~/ 100; i++) {
@@ -85,7 +86,7 @@ void main() {
   testWidgets('a student signs up end to end in demo mode', (t) async {
     phoneSize(t);
     final auth = AuthController(DemoAuthRepository());
-    await t.pumpWidget(KonductApp(auth: auth));
+    await t.pumpWidget(KonductApp(auth: auth, api: DemoRiderApi()));
     await settle(t, 2600);
     expect(auth.stage, Stage.signedOut);
 
@@ -110,6 +111,11 @@ void main() {
     expect(find.textContaining('Welcome aboard'), findsOneWidget);
     expect(find.text('ada@uniosun.edu.ng'), findsOneWidget);
 
+    await t.tap(find.text('Open my wallet'));
+    await settle(t, 1500);
+    expect(find.text('Scan to pay'), findsOneWidget);
+    expect(find.text('₦1,500'), findsOneWidget);
+
     await t.pumpWidget(const SizedBox());
     await settle(t, 1500);
   });
@@ -117,7 +123,7 @@ void main() {
   testWidgets('a short password is caught before anything is sent', (t) async {
     phoneSize(t);
     final auth = AuthController(DemoAuthRepository());
-    await t.pumpWidget(KonductApp(auth: auth));
+    await t.pumpWidget(KonductApp(auth: auth, api: DemoRiderApi()));
     await settle(t, 2600);
     await t.tap(find.text('Get started'));
     await settle(t);
@@ -137,7 +143,7 @@ void main() {
     phoneSize(t);
     final repo = DemoAuthRepository();
     final auth = AuthController(repo);
-    await t.pumpWidget(KonductApp(auth: auth));
+    await t.pumpWidget(KonductApp(auth: auth, api: DemoRiderApi()));
     await settle(t, 2600);
 
     await account(t, email: 'taken@konduct.app', password: 'whatever-123');
@@ -162,7 +168,7 @@ void main() {
     phoneSize(t);
     final repo = DemoAuthRepository();
     final auth = AuthController(repo);
-    await t.pumpWidget(KonductApp(auth: auth));
+    await t.pumpWidget(KonductApp(auth: auth, api: DemoRiderApi()));
     await settle(t, 2600);
     await t.runAsync(() => repo.signUp('ade@uniosun.edu.ng', 'ride-the-bus-1'));
     await settle(t, 1500);

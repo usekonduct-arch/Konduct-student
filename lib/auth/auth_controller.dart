@@ -30,6 +30,9 @@ class AuthController extends ChangeNotifier {
   /// Email typed on the last sign-in attempt, to pre-fill after a sign-out.
   String? email;
 
+  /// True when this session just finished sign-up, so "Welcome aboard" shows once before the wallet.
+  bool justJoined = false;
+
   void _onSession(Session? s) {
     session = s;
     _gotSession = true;
@@ -39,6 +42,7 @@ class AuthController extends ChangeNotifier {
   void _recompute() {
     final next = (!_gotSession || !_splashDone) ? Stage.booting : _stageFor(session);
     if (next != stage) {
+      if (next == Stage.ready) justJoined = stage == Stage.pin;
       stage = next;
       notifyListeners();
     }
@@ -68,6 +72,13 @@ class AuthController extends ChangeNotifier {
   Future<void> registerRider(String fullName, String studentId) => repo.registerRider(fullName: fullName, studentId: studentId);
 
   Future<void> setPin(String pin) => repo.setPin(pin);
+
+  /// Leaves "Welcome aboard" for the wallet.
+  void enterWallet() {
+    if (!justJoined) return;
+    justJoined = false;
+    notifyListeners();
+  }
 
   Future<void> signOut() => repo.signOut();
 
