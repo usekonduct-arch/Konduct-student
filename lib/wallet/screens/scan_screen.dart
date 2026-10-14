@@ -80,9 +80,12 @@ class _ScanScreenState extends State<ScanScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       HapticFeedback.heavyImpact();
+      // Not enough seats for the whole group: offer the seats that are left on the next scan.
+      final left = e.reason == 'not_enough_seats' ? (e.details['seatsLeft'] as num?)?.toInt() ?? 0 : 0;
       setState(() {
         _busy = false;
-        _error = e.message;
+        if (left > 0) _passengers = left;
+        _error = left > 0 ? '${e.message} Scan again to pay for $left.' : e.message;
       });
       await _camera?.start();
     }

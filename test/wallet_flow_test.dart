@@ -220,4 +220,78 @@ void main() {
     expect(find.text('Withdrawal to bank'), findsOneWidget);
     await done(t);
   });
+
+  testWidgets('home shows how many buses are at each park', (t) async {
+    await openHome(t);
+    expect(find.text('BUSES AT THE PARKS'), findsOneWidget);
+    expect(find.text('Shasha park'), findsOneWidget);
+    expect(find.text('Main Campus park'), findsOneWidget);
+    expect(find.text('6 buses'), findsOneWidget);
+    await done(t);
+  });
+
+  testWidgets('the confirm screen estimates seats left; a full bus refuses the next scan', (t) async {
+    await openHome(t);
+    await scanSample(t);
+    expect(find.text('About 4 of 7 seats free after you'), findsOneWidget); // 2 already paid + you
+    await t.tap(find.byIcon(Icons.arrow_back_rounded));
+    await settle(t, 900);
+
+    await scanSample(t, riders: 5);
+    expect(find.text('You take the last seat'), findsOneWidget);
+    await t.tap(find.text('Pay ₦1,000'));
+    await settle(t, 900);
+    await topKeypad(t, '2580');
+    await t.tap(find.text('Confirm'));
+    await settle(t, 2000);
+    expect(find.text("You're good to go."), findsOneWidget);
+    await t.tap(find.text('Done'));
+    await settle(t, 900);
+
+    await t.tap(find.text('Scan to pay'));
+    await settle(t, 900);
+    await t.tap(find.text('Tap to scan a sample sticker'));
+    await settle(t, 1600);
+    expect(find.textContaining('This bus is full on Konduct'), findsOneWidget);
+    await done(t);
+  });
+
+  testWidgets('the trip route shows before paying; rating opens once the trip should be over', (t) async {
+    await openHome(t);
+    await scanSample(t);
+    expect(find.text('Shasha park → Main gate'), findsOneWidget);
+    expect(find.text('~12 min'), findsOneWidget);
+    await t.tap(find.text('Pay ₦200'));
+    await settle(t, 2000);
+    expect(find.textContaining('You can rate Tunde once you arrive'), findsOneWidget);
+    await done(t);
+  });
+
+  testWidgets('a finished ride asks for a rating, once', (t) async {
+    await openHome(t);
+    expect(find.text('How was your ride with Kemi?'), findsOneWidget);
+    await t.tap(find.text('Rate'));
+    await settle(t, 900);
+    expect(find.text('Tap a star'), findsOneWidget);
+    await t.tap(find.bySemanticsLabel('4 stars, Good'));
+    await settle(t, 300);
+    expect(find.text('Good'), findsOneWidget);
+    await t.tap(find.text('Send rating'));
+    await settle(t, 1500);
+    expect(find.text('Thanks for rating Kemi.'), findsOneWidget);
+    expect(find.text('How was your ride with Kemi?'), findsNothing);
+    await done(t);
+  });
+
+  testWidgets('scrolling the home screen down and back keeps every section live', (t) async {
+    await openHome(t);
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -2000));
+    await settle(t, 600);
+    await t.drag(find.byType(Scrollable).first, const Offset(0, 2000));
+    await settle(t, 600);
+    expect(t.takeException(), isNull);
+    expect(find.text('₦1,500'), findsOneWidget);
+    expect(find.text('Shasha park'), findsOneWidget);
+    await done(t);
+  });
 }

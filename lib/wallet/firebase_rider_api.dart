@@ -43,7 +43,7 @@ class FirebaseRiderApi implements RiderApi {
         .orderBy('createdAtMs', descending: true)
         .limit(limit)
         .snapshots()
-        .map((q) => q.docs.map(_fare).toList());
+        .map((q) => q.docs.map((d) => _fare(d.id, d.data())).toList());
     final topUps = _db
         .collection('topups')
         .where('uid', isEqualTo: _uid)
@@ -77,11 +77,11 @@ class FirebaseRiderApi implements RiderApi {
     );
   }
 
-  Activity _fare(QueryDocumentSnapshot<Map<String, dynamic>> d) {
-    final m = d.data();
+  Activity _fare(String id, Map<String, dynamic> m) {
     final undo = (m['undoUntilMs'] as num?)?.toInt();
+    final rateFrom = (m['rateFromMs'] as num?)?.toInt();
     return Activity(
-      id: d.id,
+      id: id,
       kind: ActivityKind.fare,
       amountKobo: (m['totalKobo'] as num?)?.toInt() ?? 0,
       at: DateTime.fromMillisecondsSinceEpoch((m['createdAtMs'] as num?)?.toInt() ?? 0),
@@ -92,8 +92,20 @@ class FirebaseRiderApi implements RiderApi {
       passengers: (m['passengers'] as num?)?.toInt() ?? 1,
       offlineCode: m['offlineCode'] as String? ?? '',
       undoUntil: undo == null ? null : DateTime.fromMillisecondsSinceEpoch(undo),
+      driverName: m['driverFirstName'] as String? ?? '',
+      tripRoute: TripRoute.fromMap(m['tripRoute']),
+      rateFrom: rateFrom == null ? null : DateTime.fromMillisecondsSinceEpoch(rateFrom),
+      rating: (m['rating'] as num?)?.toInt(),
     );
   }
+
+  @override
+  Stream<Activity?> fare(String txId) =>
+      _db.doc('transactions/$txId').snapshots().map((s) => s.data() == null ? null : _fare(s.id, s.data()!)).handleError((_) {});
+
+  @override
+  Future<void> rateDriver({required String txId, required int stars, String comment = ''}) =>
+      _call('rateDriver', {'txId': txId, 'stars': stars, 'comment': comment});
 
   Activity _topUp(QueryDocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data();
@@ -110,6 +122,27 @@ class FirebaseRiderApi implements RiderApi {
 
   @override
   Stream<bool> paymentsPaused() => _db.doc('config/switches').snapshots().map((s) => s.data()?['paymentsPaused'] == true).handleError((_) {});
+
+  @override
+  Stream<List<Park>> parks() => _db
+      .collection('parks')
+      .where('active', isEqualTo: true)
+      .snapshots()
+      .map((q) => q.docs.map(_park).toList()..sort((a, b) => a.name.compareTo(b.name)));
+
+  Park _park(QueryDocumentSnapshot<Map<String, dynamic>> d) {
+    final m = d.data();
+    final at = (m['busCountAtMs'] as num?)?.toInt();
+    return Park(
+      id: d.id,
+      name: m['name'] as String? ?? '',
+      location: m['location'] as String? ?? '',
+      busCount: (m['busCount'] as num?)?.toInt() ?? 0,
+      updatedAt: at == null ? null : DateTime.fromMillisecondsSinceEpoch(at),
+      lat: (m['lat'] as num?)?.toDouble(),
+      lng: (m['lng'] as num?)?.toDouble(),
+    );
+  }
 
   @override
   Stream<String?> disputeState(String txId) {

@@ -34,12 +34,52 @@ class Quote {
     required this.recentlyPaidThisVehicle,
     required this.stickerChangedRecently,
     required this.expiresAt,
+    this.seatCapacity,
+    this.seatsTaken = 0,
+    this.tripRoute,
   });
 
   final String quoteId, driverFirstName, plate, vehicleType, route;
   final int fareKobo, passengers, totalKobo, balanceKobo;
   final bool insufficient, needsPin, recentlyPaidThisVehicle, stickerChangedRecently;
   final DateTime expiresAt;
+
+  /// Seats on this bus, or null when it isn't a bus (bikes aren't counted).
+  final int? seatCapacity;
+
+  /// Seats already paid by scan on this bus's current trip, before this payment. Riders paying
+  /// cash aren't counted, so what's left is an estimate.
+  final int seatsTaken;
+
+  /// Where the driver says this trip goes; null if they haven't set it.
+  final TripRoute? tripRoute;
+
+  /// Most riders this scan can pay for: the group limit, or the seats left on the bus.
+  int get maxPassengers => seatCapacity == null ? maxGroup : (seatCapacity! - seatsTaken).clamp(1, maxGroup);
+
+  /// Seats free once this payment goes through, by scan count; null when it isn't a bus.
+  int? get seatsLeftAfter => seatCapacity == null ? null : (seatCapacity! - seatsTaken - passengers).clamp(0, seatCapacity!);
+
+  /// The same quote with a different wallet balance.
+  Quote withBalance(int balance) => Quote(
+    quoteId: quoteId,
+    driverFirstName: driverFirstName,
+    plate: plate,
+    vehicleType: vehicleType,
+    route: route,
+    fareKobo: fareKobo,
+    passengers: passengers,
+    totalKobo: totalKobo,
+    balanceKobo: balance,
+    insufficient: balance < totalKobo,
+    needsPin: needsPin,
+    recentlyPaidThisVehicle: recentlyPaidThisVehicle,
+    stickerChangedRecently: stickerChangedRecently,
+    expiresAt: expiresAt,
+    seatCapacity: seatCapacity,
+    seatsTaken: seatsTaken,
+    tripRoute: tripRoute,
+  );
 
   factory Quote.fromMap(Map<String, dynamic> m) => Quote(
     quoteId: m['quoteId'] as String,
@@ -56,7 +96,43 @@ class Quote {
     recentlyPaidThisVehicle: m['recentlyPaidThisVehicle'] == true,
     stickerChangedRecently: m['stickerChangedRecently'] == true,
     expiresAt: DateTime.now().add(Duration(milliseconds: (m['expiresInMs'] as num?)?.toInt() ?? 120000)),
+    seatCapacity: (m['seatCapacity'] as num?)?.toInt(),
+    seatsTaken: (m['seatsTaken'] as num?)?.toInt() ?? 0,
+    tripRoute: TripRoute.fromMap(m['tripRoute']),
   );
+}
+
+/// Where a bus is going on a trip, from one landmark to another, and about how long it takes.
+class TripRoute {
+  const TripRoute({required this.from, required this.to, required this.etaMin});
+  final String from, to;
+  final int etaMin;
+
+  String get label => '$from → $to';
+
+  static TripRoute? fromMap(Object? m) {
+    if (m is! Map || m['from'] == null || m['to'] == null) return null;
+    return TripRoute(from: '${m['from']}', to: '${m['to']}', etaMin: (m['etaMin'] as num?)?.toInt() ?? 0);
+  }
+}
+
+/// Most riders on one scan, the payer included (backend RULES.maxPassengers).
+const maxGroup = 6;
+
+/// parks/{id}: a park and how many buses staff last counted there.
+class Park {
+  const Park({required this.id, required this.name, required this.location, required this.busCount, this.updatedAt, this.lat, this.lng});
+  final String id, name, location;
+  final int busCount;
+
+  /// When staff last updated the count; null if they never have.
+  final DateTime? updatedAt;
+  final double? lat, lng;
+
+  bool get hasPin => lat != null && lng != null;
+
+  /// A count this old may no longer be true.
+  bool staleAt(DateTime now) => updatedAt == null || now.difference(updatedAt!) > const Duration(hours: 2);
 }
 
 /// payConfirm's answer.
@@ -103,6 +179,10 @@ class Activity {
     this.offlineCode = '',
     this.undoUntil,
     this.checkoutUrl,
+    this.driverName = '',
+    this.tripRoute,
+    this.rateFrom,
+    this.rating,
   });
 
   final String id;
@@ -116,6 +196,38 @@ class Activity {
   final int passengers;
   final DateTime? undoUntil;
   final String? checkoutUrl;
+
+  /// Fares: the driver's first name, the trip route, when the rider may rate the driver (the
+  /// trip's estimated arrival) and the stars they gave, if any.
+  final String driverName;
+  final TripRoute? tripRoute;
+  final DateTime? rateFrom;
+  final int? rating;
+
+  String get driverLabel => driverName.isEmpty ? 'your driver' : driverName;
+
+  /// Riders rate a fare that went ahead, once, from its estimated arrival until a week after.
+  bool canRateAt(DateTime now) =>
+      isFare && status == 'completed' && rating == null && rateFrom != null && !now.isBefore(rateFrom!) && now.difference(at) < const Duration(days: 7);
+
+  Activity copyWith({String? status, int? rating}) => Activity(
+    id: id,
+    kind: kind,
+    amountKobo: amountKobo,
+    at: at,
+    status: status ?? this.status,
+    reference: reference,
+    routeName: routeName,
+    plate: plate,
+    passengers: passengers,
+    offlineCode: offlineCode,
+    undoUntil: undoUntil,
+    checkoutUrl: checkoutUrl,
+    driverName: driverName,
+    tripRoute: tripRoute,
+    rateFrom: rateFrom,
+    rating: rating ?? this.rating,
+  );
 
   bool get isFare => kind == ActivityKind.fare;
   bool get isWithdrawal => kind == ActivityKind.withdrawal;

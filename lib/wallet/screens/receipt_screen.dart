@@ -8,6 +8,7 @@ import '../../ui/kit.dart';
 import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
+import 'rate_sheet.dart';
 
 /// A fare receipt. Straight after paying it celebrates and offers a 60-second undo; from the
 /// activity list it's the record, with "Report a problem".
@@ -27,6 +28,7 @@ class ReceiptScreen extends StatefulWidget {
     this.driverName,
     this.undoUntil,
     this.balanceKobo,
+    this.tripRoute,
   });
 
   factory ReceiptScreen.paid({required RiderApi api, required PayResult result, required Quote quote}) => ReceiptScreen._(
@@ -40,6 +42,7 @@ class ReceiptScreen extends StatefulWidget {
     routeName: quote.route,
     plate: quote.plate,
     driverName: quote.driverFirstName,
+    tripRoute: quote.tripRoute,
     status: 'completed',
     undoUntil: result.undoUntil,
     balanceKobo: result.balanceKobo,
@@ -58,6 +61,8 @@ class ReceiptScreen extends StatefulWidget {
     plate: activity.plate,
     status: activity.status,
     undoUntil: activity.undoUntil,
+    driverName: activity.driverName.isEmpty ? null : activity.driverName,
+    tripRoute: activity.tripRoute,
     justPaid: false,
   );
 
@@ -68,6 +73,7 @@ class ReceiptScreen extends StatefulWidget {
   final int? balanceKobo;
   final DateTime at;
   final DateTime? undoUntil;
+  final TripRoute? tripRoute;
   final bool justPaid;
 
   @override
@@ -226,6 +232,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
                   if (widget.driverName != null) _row(context, 'Driver', widget.driverName!),
                   if (widget.plate.isNotEmpty) _row(context, 'Vehicle', widget.plate),
                   if (widget.routeName.isNotEmpty) _row(context, 'Route', widget.routeName),
+                  if (widget.tripRoute != null) _row(context, 'Trip', '${widget.tripRoute!.label} · ~${widget.tripRoute!.etaMin} min'),
                   _row(context, 'When', whenText(widget.at)),
                   _row(context, 'Reference', widget.reference, copy: true),
                   if (widget.balanceKobo != null && !reversed) _row(context, 'Wallet now', naira(widget.balanceKobo!)),
@@ -234,6 +241,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
             ),
           ),
           const SizedBox(height: 14),
+          if (!reversed) RideRatingCard(api: widget.api, txId: widget.txId),
           if (!reversed && !_canUndo)
             StreamBuilder<String?>(
               stream: _dispute,

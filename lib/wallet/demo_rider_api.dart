@@ -5,11 +5,33 @@ import 'rider_api.dart';
 
 /// Stand-in used without Firebase (`--dart-define=KONDUCT_DEMO=true`). Starts with ₦1,500.
 /// Any sticker code works and costs ₦200 a rider. Code `OFF000` plays a vehicle that's off duty.
+/// The demo bus seats 7 and already has 2 riders paid by scan; undo gives seats back. Its trip
+/// goes Shasha park → Main gate (about 12 minutes). An earlier ride is waiting to be rated.
 /// A top-up "pays" itself two seconds after the checkout opens.
 /// Bank accounts: any 10-digit number resolves to the rider's own name and is "approved" two
 /// seconds later, with no hold. Password `ride-the-bus-1`, PIN `2580`.
 class DemoRiderApi implements RiderApi {
-  DemoRiderApi({this.fullName = 'Adaeze Okafor', this.studentId = 'UNI/2023/04571'});
+  DemoRiderApi({this.fullName = 'Adaeze Okafor', this.studentId = 'UNI/2023/04571'}) {
+    final earlier = DateTime.now().subtract(const Duration(minutes: 40));
+    _items.add(
+      Activity(
+        id: 'fare_demo0earlier',
+        kind: ActivityKind.fare,
+        amountKobo: 20000,
+        at: earlier,
+        status: 'completed',
+        reference: 'KD-4MX2Q9',
+        routeName: 'Hostels → Main gate',
+        plate: 'OS 117 EDE',
+        offlineCode: 'H3K9QP',
+        driverName: 'Kemi',
+        tripRoute: const TripRoute(from: 'Hostels', to: 'Main gate', etaMin: 9),
+        rateFrom: earlier.add(const Duration(minutes: 9)),
+      ),
+    );
+  }
+
+  static const _trip = TripRoute(from: 'Shasha park', to: 'Main gate', etaMin: 12);
 
   final String fullName, studentId;
   int _balance = 150000;
@@ -19,6 +41,8 @@ class DemoRiderApi implements RiderApi {
   final _results = <String, PayResult>{};
   final _changed = StreamController<void>.broadcast();
   var _n = 0;
+  static const _busSeats = 7;
+  var _seatsTaken = 2;
 
   @override
   bool get isDemo => true;
@@ -44,6 +68,23 @@ class DemoRiderApi implements RiderApi {
   Stream<bool> paymentsPaused() => Stream.value(false);
 
   @override
+  Stream<List<Park>> parks() {
+    final now = DateTime.now();
+    return Stream.value([
+      Park(id: 'main-campus', name: 'Main Campus park', location: 'Beside the main gate', busCount: 2, updatedAt: now.subtract(const Duration(minutes: 25))),
+      Park(
+        id: 'shasha',
+        name: 'Shasha park',
+        location: 'Shasha junction, Osogbo',
+        busCount: 4,
+        updatedAt: now.subtract(const Duration(minutes: 6)),
+        lat: 7.7712,
+        lng: 4.5567,
+      ),
+    ]);
+  }
+
+  @override
   Stream<String?> disputeState(String txId) => _live(() => _disputes[txId]);
 
   @override
@@ -51,6 +92,13 @@ class DemoRiderApi implements RiderApi {
     await _lag();
     if ((code ?? '').toUpperCase() == 'OFF000') {
       throw const ApiException('vehicle_inactive', 'This vehicle isn\'t taking Konduct payments right now. Please pay in cash.');
+    }
+    final left = _busSeats - _seatsTaken;
+    if (left <= 0) {
+      throw const ApiException('bus_full', 'This bus is full on Konduct: all 7 seats are paid. If riders just got off, ask the driver to tap "New trip".');
+    }
+    if (passengers > left) {
+      throw ApiException('not_enough_seats', left == 1 ? 'Only 1 seat is left on this bus.' : 'Only $left seats are left on this bus.', details: {'seatsLeft': left});
     }
     final total = 20000 * passengers;
     final recent = _items.any((a) => a.isFare && !a.reversed && DateTime.now().difference(a.at) < const Duration(minutes: 10));
@@ -69,6 +117,9 @@ class DemoRiderApi implements RiderApi {
       recentlyPaidThisVehicle: recent,
       stickerChangedRecently: false,
       expiresAt: DateTime.now().add(const Duration(minutes: 2)),
+      seatCapacity: _busSeats,
+      seatsTaken: _seatsTaken,
+      tripRoute: _trip,
     );
     _quotes[q.quoteId] = q;
     return q;
@@ -90,6 +141,10 @@ class DemoRiderApi implements RiderApi {
       throw const ApiException('pin_wrong', 'Wrong PIN. (Demo PIN: 2580)');
     }
     if (_balance < q.totalKobo) throw const ApiException('insufficient_funds', 'Not enough in your wallet. Top up and scan again.');
+    if (_seatsTaken + q.passengers > _busSeats) {
+      throw const ApiException('bus_full', 'This bus is full on Konduct: all 7 seats are paid. If riders just got off, ask the driver to tap "New trip".');
+    }
+    _seatsTaken += q.passengers;
     _balance -= q.totalKobo;
     final r = PayResult(
       txId: 'fare_demo${++_n}xxxx',
@@ -115,6 +170,9 @@ class DemoRiderApi implements RiderApi {
         passengers: q.passengers,
         offlineCode: r.offlineCode,
         undoUntil: r.undoUntil,
+        driverName: q.driverFirstName,
+        tripRoute: _trip,
+        rateFrom: DateTime.now().add(Duration(minutes: _trip.etaMin)),
       ),
     );
     _touch();
@@ -131,20 +189,25 @@ class DemoRiderApi implements RiderApi {
       throw const ApiException('undo_expired', 'It\'s too late to undo. Open a dispute from the receipt instead.');
     }
     _balance += a.amountKobo;
-    _items[i] = Activity(
-      id: a.id,
-      kind: a.kind,
-      amountKobo: a.amountKobo,
-      at: a.at,
-      status: 'reversed',
-      reference: a.reference,
-      routeName: a.routeName,
-      plate: a.plate,
-      passengers: a.passengers,
-      offlineCode: a.offlineCode,
-    );
+    _seatsTaken = (_seatsTaken - a.passengers).clamp(0, _busSeats);
+    _items[i] = a.copyWith(status: 'reversed');
     _touch();
     return _balance;
+  }
+
+  @override
+  Stream<Activity?> fare(String txId) => _live(() => _items.where((a) => a.id == txId).firstOrNull);
+
+  @override
+  Future<void> rateDriver({required String txId, required int stars, String comment = ''}) async {
+    await _lag();
+    final i = _items.indexWhere((a) => a.id == txId);
+    if (i < 0) throw const ApiException('bad_tx', 'We couldn\'t find that ride.');
+    final a = _items[i];
+    if (a.rating != null) throw const ApiException('already_rated', 'You\'ve already rated this ride. Thanks!');
+    if (!a.canRateAt(DateTime.now())) throw const ApiException('too_early', 'You can rate this ride once you\'ve arrived.');
+    _items[i] = a.copyWith(rating: stars);
+    _touch();
   }
 
   @override

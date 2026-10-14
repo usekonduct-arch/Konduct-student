@@ -115,30 +115,17 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
           showSnack(context, e.message);
           await _reprice();
         case 'insufficient_funds':
-          setState(() => _q = _withBalance((e.details['balanceKobo'] as num?)?.toInt() ?? _q.balanceKobo));
+          setState(() => _q = _q.withBalance((e.details['balanceKobo'] as num?)?.toInt() ?? _q.balanceKobo));
+        case 'not_enough_seats' when ((e.details['seatsLeft'] as num?)?.toInt() ?? 0) > 0:
+          // Others scanned in meanwhile: offer the seats that are left.
+          showSnack(context, e.message);
+          await _reprice(passengers: (e.details['seatsLeft'] as num).toInt());
         default:
           HapticFeedback.heavyImpact();
           setState(() => _error = e.message);
       }
     }
   }
-
-  Quote _withBalance(int balance) => Quote(
-    quoteId: _q.quoteId,
-    driverFirstName: _q.driverFirstName,
-    plate: _q.plate,
-    vehicleType: _q.vehicleType,
-    route: _q.route,
-    fareKobo: _q.fareKobo,
-    passengers: _q.passengers,
-    totalKobo: _q.totalKobo,
-    balanceKobo: balance,
-    insufficient: balance < _q.totalKobo,
-    needsPin: _q.needsPin,
-    recentlyPaidThisVehicle: _q.recentlyPaidThisVehicle,
-    stickerChangedRecently: _q.stickerChangedRecently,
-    expiresAt: _q.expiresAt,
-  );
 
   Future<bool?> _askRepeat() => showDialog<bool>(
     context: context,
@@ -219,12 +206,31 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
                       Expanded(child: Text(_q.route, style: KText.body(p.text))),
                     ],
                   ),
+                  if (_q.tripRoute != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.place_rounded, size: 18, color: p.subtle),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(_q.tripRoute!.label, style: KText.body(p.text).copyWith(fontWeight: FontWeight.w700))),
+                        Text('~${_q.tripRoute!.etaMin} min', style: KText.mono(p.subtle, size: 13)),
+                      ],
+                    ),
+                  ],
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     child: Divider(height: 1, color: p.border),
                   ),
+                  if (_q.seatCapacity != null) ...[
+                    _Seats(capacity: _q.seatCapacity!, taken: _q.seatsTaken, mine: _q.passengers),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Divider(height: 1, color: p.border),
+                    ),
+                  ],
                   PassengerStepper(
                     value: _q.passengers,
+                    max: _q.maxPassengers,
                     onChanged: _busy || _repricing ? null : (v) => _reprice(passengers: v),
                   ),
                   Padding(
@@ -320,4 +326,57 @@ class _Warn extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Seats on the bus by scan count: paid by others, this payment, and free. An estimate, since
+/// riders paying cash aren't counted.
+class _Seats extends StatelessWidget {
+  const _Seats({required this.capacity, required this.taken, required this.mine});
+  final int capacity, taken, mine;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final left = (capacity - taken - mine).clamp(0, capacity);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.event_seat_rounded, size: 18, color: p.subtle),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                left == 0 ? 'You take the last seat' : 'About $left of $capacity seats free after you',
+                style: KText.body(p.text).copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ExcludeSemantics(
+          child: Row(
+            children: [
+              for (var i = 0; i < capacity; i++) ...[
+                if (i > 0) const SizedBox(width: 4),
+                Expanded(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 260),
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: i < taken ? p.subtle.withValues(alpha: 0.55) : (i < taken + mine ? K.yellow : Colors.transparent),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: i < taken + mine ? Colors.transparent : p.border, width: 1.5),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text('Counted from Konduct scans. Riders paying cash aren\'t counted, so the bus may be fuller.', style: KText.small(p.subtle)),
+      ],
+    );
+  }
 }

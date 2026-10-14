@@ -18,6 +18,9 @@ abstract class RiderApi {
   /// config/switches: true while Konduct has paused payments.
   Stream<bool> paymentsPaused();
 
+  /// Parks shown in the app and how many buses are there, by name.
+  Stream<List<Park>> parks();
+
   /// The dispute state for one fare ("open", "resolved", ...), or null if none was opened.
   Stream<String?> disputeState(String txId);
 
@@ -28,6 +31,12 @@ abstract class RiderApi {
 
   /// Undo within 60 seconds. Returns the new balance.
   Future<int> undo(String txId);
+
+  /// One fare, live (for its rating); null if it can't be read.
+  Stream<Activity?> fare(String txId);
+
+  /// 1 to 5 stars for the driver, once the trip's estimated time has passed.
+  Future<void> rateDriver({required String txId, required int stars, String comment = ''});
 
   /// Opens a Bachs checkout. Returns its URL.
   Future<String> createTopUp({required int amountKobo, required String idempotencyKey});

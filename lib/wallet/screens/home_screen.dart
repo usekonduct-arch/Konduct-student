@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../auth/auth_repository.dart';
 import '../../theme/tokens.dart';
@@ -9,6 +12,7 @@ import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'activity_screen.dart';
+import 'rate_sheet.dart';
 import 'receipt_screen.dart';
 import 'scan_screen.dart';
 import 'settings_screen.dart';
@@ -30,6 +34,9 @@ class _HomeScreenState extends State<HomeScreen> {
   late final _balance = widget.api.balance();
   late final _activity = widget.api.activity(limit: 30);
   late final _paused = widget.api.paymentsPaused();
+  late final _parks = widget.api.parks();
+  // A second listener for the "rate your ride" prompt (a stream can only be listened to once).
+  late final _rateable = widget.api.activity(limit: 10);
   bool _hidden = false;
 
   RiderApi get api => widget.api;
@@ -55,72 +62,89 @@ class _HomeScreenState extends State<HomeScreen> {
             slivers: [
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                sliver: SliverList.list(
-                  children: [
-                    Row(
-                      children: [
-                        const KMark(size: 40),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Hi, $name', style: KText.h3(p.text)),
-                              Text(_greeting(), style: KText.small(p.subtle)),
-                            ],
+                // One box, not a lazy list: these sections must keep their stream subscriptions when scrolled away.
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          const KMark(size: 40),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Hi, $name', style: KText.h3(p.text)),
+                                Text(_greeting(), style: KText.small(p.subtle)),
+                              ],
+                            ),
                           ),
-                        ),
-                        if (api.isDemo) const Padding(padding: EdgeInsets.only(right: 10), child: DemoBadge()),
-                        RoundIconButton(
-                          icon: Icons.person_rounded,
-                          tooltip: 'Account',
-                          onTap: () => pushScreen(context, SettingsScreen(api: api, session: widget.session, onSignOut: widget.onSignOut)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    StreamBuilder<bool>(
-                      stream: _paused,
-                      builder: (_, s) => AnimatedSize(
-                        duration: const Duration(milliseconds: 300),
-                        child: s.data == true
-                            ? const Padding(padding: EdgeInsets.only(bottom: 14), child: _PausedBanner())
-                            : const SizedBox(width: double.infinity),
+                          if (api.isDemo) const Padding(padding: EdgeInsets.only(right: 10), child: DemoBadge()),
+                          RoundIconButton(
+                            icon: Icons.person_rounded,
+                            tooltip: 'Account',
+                            onTap: () => pushScreen(context, SettingsScreen(api: api, session: widget.session, onSignOut: widget.onSignOut)),
+                          ),
+                        ],
                       ),
-                    ),
-                    Entrance(
-                      child: StreamBuilder<int?>(
-                        stream: _balance,
-                        builder: (_, s) => _BalanceCard(
-                          kobo: s.data,
-                          hidden: _hidden,
-                          onToggle: () => setState(() => _hidden = !_hidden),
-                          onTopUp: _topUp,
-                          onWithdraw: _withdraw,
+                      const SizedBox(height: 20),
+                      StreamBuilder<bool>(
+                        stream: _paused,
+                        builder: (_, s) => AnimatedSize(
+                          duration: const Duration(milliseconds: 300),
+                          child: s.data == true
+                              ? const Padding(padding: EdgeInsets.only(bottom: 14), child: _PausedBanner())
+                              : const SizedBox(width: double.infinity),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    Entrance(
-                      delay: const Duration(milliseconds: 80),
-                      child: _ScanCard(onTap: _scan),
-                    ),
-                    const SizedBox(height: 28),
-                    Row(
-                      children: [
-                        Text('RECENT', style: KText.kicker(p.subtle)),
-                        const Spacer(),
-                        Pressable(
-                          onTap: () => pushScreen(context, ActivityScreen(api: api)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Text('See all', style: KText.small(p.text).copyWith(decoration: TextDecoration.underline)),
+                      Entrance(
+                        child: StreamBuilder<int?>(
+                          stream: _balance,
+                          builder: (_, s) => _BalanceCard(
+                            kobo: s.data,
+                            hidden: _hidden,
+                            onToggle: () => setState(() => _hidden = !_hidden),
+                            onTopUp: _topUp,
+                            onWithdraw: _withdraw,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                  ],
+                      ),
+                      const SizedBox(height: 14),
+                      Entrance(
+                        delay: const Duration(milliseconds: 80),
+                        child: _ScanCard(onTap: _scan),
+                      ),
+                      StreamBuilder<List<Activity>>(
+                        stream: _rateable,
+                        builder: (_, s) => _RatePrompt(api: api, fares: s.data ?? const []),
+                      ),
+                      StreamBuilder<List<Park>>(
+                        stream: _parks,
+                        builder: (_, s) => (s.data ?? const []).isEmpty
+                            ? const SizedBox.shrink()
+                            : Padding(
+                                padding: const EdgeInsets.only(top: 28),
+                                child: ParksStrip(parks: s.data!),
+                              ),
+                      ),
+                      const SizedBox(height: 28),
+                      Row(
+                        children: [
+                          Text('RECENT', style: KText.kicker(p.subtle)),
+                          const Spacer(),
+                          Pressable(
+                            onTap: () => pushScreen(context, ActivityScreen(api: api)),
+                            child: Padding(
+                              padding: const EdgeInsets.all(6),
+                              child: Text('See all', style: KText.small(p.text).copyWith(decoration: TextDecoration.underline)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                  ),
                 ),
               ),
               SliverPadding(
@@ -344,6 +368,174 @@ class _Note extends StatelessWidget {
           Expanded(child: Text(text, style: KText.small(p.subtle))),
         ],
       ),
+    );
+  }
+}
+
+/// How many buses staff last counted at each park. Tapping a park with a map pin opens Maps.
+class ParksStrip extends StatelessWidget {
+  const ParksStrip({super.key, required this.parks});
+  final List<Park> parks;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final total = parks.fold(0, (t, x) => t + x.busCount);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Text('BUSES AT THE PARKS', style: KText.kicker(p.subtle)),
+            const Spacer(),
+            Text(total == 1 ? '1 bus' : '$total buses', style: KText.small(p.subtle)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, c) {
+            // Two parks fill the row; more scroll sideways with the next one peeking in.
+            final width = parks.length <= 2 ? (c.maxWidth - 10 * (parks.length - 1)) / parks.length : (c.maxWidth - 10) / 2.2;
+            return SizedBox(
+              height: 150,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                itemCount: parks.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (_, i) => SizedBox(width: width, child: _ParkCard(parks[i])),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _ParkCard extends StatelessWidget {
+  const _ParkCard(this.park);
+  final Park park;
+
+  Future<void> _openMap() =>
+      launchUrl(Uri.parse('https://www.google.com/maps/search/?api=1&query=${park.lat},${park.lng}'), mode: LaunchMode.externalApplication);
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final now = DateTime.now();
+    final stale = park.staleAt(now);
+    final updated = park.updatedAt == null ? 'Not counted yet' : 'Updated ${_lower(whenText(park.updatedAt!, now: now))}';
+    final card = Panel(
+      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('${park.busCount}', style: KText.title(p.text).copyWith(fontSize: 34)),
+              const SizedBox(width: 6),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(park.busCount == 1 ? 'bus' : 'buses', style: KText.small(p.subtle)),
+              ),
+              const Spacer(),
+              if (park.hasPin) Icon(Icons.map_rounded, size: 18, color: p.subtle),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            park.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: KText.body(p.text).copyWith(fontWeight: FontWeight.w800),
+          ),
+          Text(park.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: KText.small(p.subtle)),
+          const SizedBox(height: 4),
+          Text(
+            stale && park.updatedAt != null ? '$updated · may have changed' : updated,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: KText.small(stale ? K.coral : p.subtle).copyWith(fontSize: 11.5),
+          ),
+        ],
+      ),
+    );
+    return Semantics(
+      label: '${park.name}, ${park.busCount} ${park.busCount == 1 ? 'bus' : 'buses'}. $updated.',
+      button: park.hasPin,
+      excludeSemantics: true,
+      child: park.hasPin ? Pressable(scale: 0.97, onTap: _openMap, child: card) : card,
+    );
+  }
+
+  static String _lower(String s) => s.isEmpty ? s : s[0].toLowerCase() + s.substring(1);
+}
+
+/// "How was your ride?" for the latest ride whose estimated time has passed and isn't rated yet.
+/// Rides older than a day aren't prompted for (they can still be rated from the receipt).
+class _RatePrompt extends StatefulWidget {
+  const _RatePrompt({required this.api, required this.fares});
+  final RiderApi api;
+  final List<Activity> fares;
+  @override
+  State<_RatePrompt> createState() => _RatePromptState();
+}
+
+class _RatePromptState extends State<_RatePrompt> {
+  // A ride becomes rateable as time passes, not when data changes.
+  late final Timer _tick = Timer.periodic(const Duration(seconds: 30), (_) => setState(() {}));
+  final _dismissed = <String>{};
+
+  @override
+  void dispose() {
+    _tick.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final fare = widget.fares.where((a) => a.canRateAt(now) && now.difference(a.at) < const Duration(days: 1) && !_dismissed.contains(a.id)).firstOrNull;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      child: fare == null
+          ? const SizedBox(width: double.infinity)
+          : Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: Panel(
+                child: Row(
+                  children: [
+                    const Icon(Icons.star_rounded, color: K.yellowDeep, size: 28),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('How was your ride with ${fare.driverLabel}?', style: KText.body(K.ink).copyWith(fontWeight: FontWeight.w800)),
+                          Text(fare.tripRoute?.label ?? whenText(fare.at), maxLines: 1, overflow: TextOverflow.ellipsis, style: KText.small(K.mute)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Pressable(
+                      onTap: () => rateRide(context, widget.api, fare),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(color: K.yellow, borderRadius: BorderRadius.circular(20)),
+                        child: Text('Rate', style: KText.body(K.ink).copyWith(fontWeight: FontWeight.w800)),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Not now',
+                      onPressed: () => setState(() => _dismissed.add(fare.id)),
+                      icon: const Icon(Icons.close_rounded, color: K.mute, size: 20),
+                    ),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }
