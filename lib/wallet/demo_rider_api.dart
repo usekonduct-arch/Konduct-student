@@ -6,6 +6,8 @@ import 'rider_api.dart';
 /// Stand-in used without Firebase (`--dart-define=KONDUCT_DEMO=true`). Starts with ₦1,500.
 /// Any sticker code works and costs ₦200 a rider. Code `OFF000` plays a vehicle that's off duty.
 /// A top-up "pays" itself two seconds after the checkout opens.
+/// Bank accounts: any 10-digit number resolves to the rider's own name and is "approved" two
+/// seconds later, with no hold. Password `ride-the-bus-1`, PIN `2580`.
 class DemoRiderApi implements RiderApi {
   DemoRiderApi({this.fullName = 'Adaeze Okafor', this.studentId = 'UNI/2023/04571'});
 
@@ -178,4 +180,72 @@ class DemoRiderApi implements RiderApi {
 
   @override
   Future<void> lockMyAccount() => _lag();
+
+  BankAccount? _active, _pending;
+
+  @override
+  Stream<BankAccounts> bankAccounts() => _live(() => BankAccounts(active: _active, pending: _pending));
+
+  @override
+  Future<List<Bank>> banks() async {
+    await _lag(300);
+    return const [
+      Bank('044', 'Access Bank'),
+      Bank('058', 'Guaranty Trust Bank'),
+      Bank('50515', 'Moniepoint MFB'),
+      Bank('999992', 'OPay'),
+      Bank('100033', 'PalmPay'),
+      Bank('101', 'Providus Bank'),
+      Bank('232', 'Sterling Bank'),
+      Bank('033', 'United Bank for Africa'),
+      Bank('057', 'Zenith Bank'),
+    ];
+  }
+
+  @override
+  Future<BankCheck> setBankAccount({required String bankCode, required String accountNumber, required String password, required String pin}) async {
+    await _lag();
+    if (password != 'ride-the-bus-1') throw const ApiException('wrong_password', "That password isn't right. (Demo: ride-the-bus-1)");
+    if (pin != '2580') throw const ApiException('pin_wrong', 'Wrong PIN. (Demo PIN: 2580)');
+    final name = fullName.toUpperCase();
+    _pending = BankAccount(
+      id: 'pa_demo${++_n}',
+      bankCode: bankCode,
+      last4: accountNumber.substring(6),
+      accountName: name,
+      status: 'pending_approval',
+      nameMatches: true,
+    );
+    _touch();
+    Future.delayed(const Duration(seconds: 2), () {
+      final p = _pending;
+      if (p == null) return;
+      _active = BankAccount(id: p.id, bankCode: p.bankCode, last4: p.last4, accountName: p.accountName, status: 'active', nameMatches: true);
+      _pending = null;
+      _touch();
+    });
+    return BankCheck(accountName: name, nameMatches: true);
+  }
+
+  @override
+  Future<void> withdraw({required int amountKobo, required String pin}) async {
+    await _lag();
+    if (pin != '2580') throw const ApiException('pin_wrong', 'Wrong PIN. (Demo PIN: 2580)');
+    if (_active == null) throw const ApiException('no_payout_account', 'Add a bank account first.');
+    if (amountKobo > _balance) throw const ApiException('insufficient_funds', "That's more than you have in your wallet.");
+    _balance -= amountKobo;
+    final id = 'po_demo${++_n}';
+    _items.insert(
+      0,
+      Activity(id: id, kind: ActivityKind.withdrawal, amountKobo: amountKobo, at: DateTime.now(), status: 'submitted', reference: '****${_active!.last4}'),
+    );
+    _touch();
+    Future.delayed(const Duration(seconds: 2), () {
+      final i = _items.indexWhere((a) => a.id == id);
+      if (i < 0) return;
+      final a = _items[i];
+      _items[i] = Activity(id: a.id, kind: a.kind, amountKobo: a.amountKobo, at: a.at, status: 'paid', reference: a.reference);
+      _touch();
+    });
+  }
 }

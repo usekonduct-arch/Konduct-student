@@ -39,6 +39,14 @@ Future<void> scanSample(WidgetTester t, {int riders = 1}) async {
   await settle(t, 1600);
 }
 
+/// Types on the topmost keypad (the PIN sheet when it's over another keypad).
+Future<void> topKeypad(WidgetTester t, String digits) async {
+  for (final d in digits.split('')) {
+    await t.tap(find.descendant(of: find.byType(Keypad).last, matching: find.text(d)));
+    await t.pump(const Duration(milliseconds: 60));
+  }
+}
+
 Future<void> done(WidgetTester t) async {
   await t.pumpWidget(const SizedBox());
   await settle(t, 1500);
@@ -161,6 +169,55 @@ void main() {
     await settle(t, 2500);
     expect(find.text('₦3,500'), findsOneWidget);
     expect(find.text('+₦2,000'), findsOneWidget);
+    await done(t);
+  });
+
+  testWidgets('a student adds a bank account, then withdraws to it', (t) async {
+    await openHome(t);
+    await t.tap(find.text('Withdraw'));
+    await settle(t, 900);
+    expect(find.text('Add your bank account'), findsOneWidget);
+    await t.tap(find.text('Add a bank account'));
+    await settle(t, 900);
+
+    await t.tap(find.text('Choose your bank'));
+    await settle(t, 900);
+    await t.enterText(find.byType(TextField).last, 'guaranty');
+    await settle(t, 300);
+    await t.tap(find.text('Guaranty Trust Bank'));
+    await settle(t, 600);
+    await t.enterText(find.byType(TextField), '0123456789');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await settle(t, 300);
+    await t.tap(find.text('Continue'));
+    await settle(t, 900);
+
+    expect(find.text('Confirm your password'), findsOneWidget);
+    await t.enterText(find.byType(TextField).last, 'ride-the-bus-1');
+    await settle(t, 300);
+    await t.tap(find.text('Confirm'));
+    await settle(t, 900);
+    await keypad(t, '2580');
+    await t.tap(find.text('Confirm'));
+    await settle(t, 1200);
+    expect(find.text('Account added'), findsOneWidget);
+    expect(find.textContaining('ADAEZE OKAFOR'), findsOneWidget);
+    await t.tap(find.text('OK'));
+    await settle(t, 900);
+    expect(find.text('Being checked'), findsOneWidget);
+
+    await settle(t, 2500); // approved
+    expect(find.text('How much?'), findsOneWidget);
+    await keypad(t, '500');
+    await t.tap(find.text('Withdraw ₦500'));
+    await settle(t, 900);
+    await topKeypad(t, '2580');
+    await t.tap(find.text('Confirm'));
+    await settle(t, 1500);
+
+    expect(find.textContaining('on its way to ****6789'), findsOneWidget);
+    expect(find.text('₦1,000'), findsOneWidget);
+    expect(find.text('Withdrawal to bank'), findsOneWidget);
     await done(t);
   });
 }

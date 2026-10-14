@@ -9,6 +9,7 @@ import '../../ui/kit.dart';
 import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
+import 'bank_account_screen.dart';
 
 /// Profile, funding code, PIN, account lock and sign out.
 class SettingsScreen extends StatefulWidget {
@@ -140,6 +141,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
               const SizedBox(height: 22),
+              Text('MONEY', style: KText.kicker(p.subtle)),
+              const SizedBox(height: 8),
+              _action(
+                context,
+                Icons.account_balance_rounded,
+                'Bank account',
+                subtitle: 'Where your withdrawals go',
+                onTap: () => pushScreen(context, BankAccountScreen(api: widget.api)),
+              ),
+              const SizedBox(height: 14),
               Text('SECURITY', style: KText.kicker(p.subtle)),
               const SizedBox(height: 8),
               _action(context, Icons.pin_rounded, 'Change PIN', onTap: _changePin),

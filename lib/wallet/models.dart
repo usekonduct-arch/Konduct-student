@@ -86,7 +86,7 @@ class PayResult {
   );
 }
 
-enum ActivityKind { fare, topUp }
+enum ActivityKind { fare, topUp, withdrawal }
 
 /// One line in the activity list: a fare (transactions/{id}) or a top-up (topups/{id}).
 class Activity {
@@ -118,10 +118,59 @@ class Activity {
   final String? checkoutUrl;
 
   bool get isFare => kind == ActivityKind.fare;
-  bool get reversed => status == 'reversed' || status == 'refunded';
+  bool get isWithdrawal => kind == ActivityKind.withdrawal;
+  bool get reversed => status == 'reversed' || status == 'refunded' || (isWithdrawal && status == 'returned');
   bool get credited => status == 'credited';
-  bool get pending => kind == ActivityKind.topUp && (status == 'open' || status == 'creating');
+  bool get pending =>
+      (kind == ActivityKind.topUp && (status == 'open' || status == 'creating')) ||
+      (isWithdrawal && const ['reserved', 'transferred', 'submitted', 'unknown'].contains(status));
 }
+
+/// A Nigerian bank from Bachs's list.
+class Bank {
+  const Bank(this.code, this.name);
+  final String code, name;
+}
+
+/// payoutAccounts/{id}: where withdrawals go. The full account number stays at Bachs.
+class BankAccount {
+  const BankAccount({
+    required this.id,
+    required this.bankCode,
+    required this.last4,
+    required this.accountName,
+    required this.status,
+    required this.nameMatches,
+    this.holdUntil,
+  });
+
+  final String id, bankCode, last4, accountName;
+
+  /// pending_approval | active | replaced | rejected
+  final String status;
+  final bool nameMatches;
+  final DateTime? holdUntil;
+
+  bool get active => status == 'active';
+  bool get waiting => status == 'pending_approval';
+  bool get onHold => active && holdUntil != null && DateTime.now().isBefore(holdUntil!);
+}
+
+/// The rider's approved account and, while a change is being checked, the new one.
+class BankAccounts {
+  const BankAccounts({this.active, this.pending});
+  final BankAccount? active, pending;
+}
+
+/// riderSetPayoutAccount's answer: the name the bank has on the account.
+class BankCheck {
+  const BankCheck({required this.accountName, required this.nameMatches});
+  final String accountName;
+  final bool nameMatches;
+}
+
+/// Lowest withdrawal (backend RULES.minPayoutKobo).
+const minWithdrawKobo = 50000;
 
 /// Reasons a rider can give on a dispute (backend OpenDispute).
 enum DisputeReason {

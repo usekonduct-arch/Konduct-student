@@ -13,6 +13,7 @@ import 'receipt_screen.dart';
 import 'scan_screen.dart';
 import 'settings_screen.dart';
 import 'top_up_screen.dart';
+import 'withdraw_screen.dart';
 
 /// The rider's home: balance, top up, scan to pay, recent activity.
 class HomeScreen extends StatefulWidget {
@@ -35,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _scan() => pushScreen(context, ScanScreen(api: api));
   void _topUp() => pushScreen(context, TopUpScreen(api: api));
+  void _withdraw() => pushScreen(context, WithdrawScreen(api: api));
   void _open(Activity a) {
     if (a.isFare) pushScreen(context, ReceiptScreen.fromActivity(api: api, activity: a));
   }
@@ -89,7 +91,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     Entrance(
                       child: StreamBuilder<int?>(
                         stream: _balance,
-                        builder: (_, s) => _BalanceCard(kobo: s.data, hidden: _hidden, onToggle: () => setState(() => _hidden = !_hidden), onTopUp: _topUp),
+                        builder: (_, s) => _BalanceCard(
+                          kobo: s.data,
+                          hidden: _hidden,
+                          onToggle: () => setState(() => _hidden = !_hidden),
+                          onTopUp: _topUp,
+                          onWithdraw: _withdraw,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -157,10 +165,10 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({required this.kobo, required this.hidden, required this.onToggle, required this.onTopUp});
+  const _BalanceCard({required this.kobo, required this.hidden, required this.onToggle, required this.onTopUp, required this.onWithdraw});
   final int? kobo;
   final bool hidden;
-  final VoidCallback onToggle, onTopUp;
+  final VoidCallback onToggle, onTopUp, onWithdraw;
 
   @override
   Widget build(BuildContext context) {
@@ -226,6 +234,28 @@ class _BalanceCard extends StatelessWidget {
                         const Icon(Icons.add_rounded, color: K.ink),
                         const SizedBox(width: 6),
                         Text('Top up', style: KText.body(K.ink).copyWith(fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Pressable(
+                  onTap: onWithdraw,
+                  child: Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(25),
+                      border: Border.all(color: const Color(0xFF2A313C), width: 1.5),
+                    ),
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.north_east_rounded, color: K.paper, size: 20),
+                        const SizedBox(width: 6),
+                        Text('Withdraw', style: KText.body(K.paper).copyWith(fontWeight: FontWeight.w800)),
                       ],
                     ),
                   ),

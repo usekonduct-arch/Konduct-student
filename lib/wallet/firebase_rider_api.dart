@@ -51,7 +51,30 @@ class FirebaseRiderApi implements RiderApi {
         .limit(limit)
         .snapshots()
         .map((q) => q.docs.map(_topUp).toList());
-    return _combine(fares, topUps, (a, b) => ([...a, ...b]..sort((x, y) => y.at.compareTo(x.at))).take(limit).toList());
+    final withdrawals = _db
+        .collection('payouts')
+        .where('uid', isEqualTo: _uid)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((q) => q.docs.map(_withdrawal).toList());
+    return _combineAll([
+      fares,
+      topUps,
+      withdrawals,
+    ]).map((lists) => (lists.expand((l) => l).toList()..sort((x, y) => y.at.compareTo(x.at))).take(limit).toList());
+  }
+
+  Activity _withdrawal(QueryDocumentSnapshot<Map<String, dynamic>> d) {
+    final m = d.data();
+    return Activity(
+      id: d.id,
+      kind: ActivityKind.withdrawal,
+      amountKobo: (m['amountKobo'] as num?)?.toInt() ?? 0,
+      at: (m['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      status: m['status'] as String? ?? 'reserved',
+      reference: m['accountLast4'] == null ? '' : '****${m['accountLast4']}',
+    );
   }
 
   Activity _fare(QueryDocumentSnapshot<Map<String, dynamic>> d) {
@@ -133,6 +156,78 @@ class FirebaseRiderApi implements RiderApi {
     await FirebaseAuth.instance.currentUser?.getIdToken(true);
   }
 
+  @override
+  Stream<BankAccounts> bankAccounts() {
+    // users/{uid} names the approved account and any pending one; follow both documents.
+    late StreamController<BankAccounts> c;
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? userSub;
+    final subs = <String, StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>{};
+    final docs = <String, BankAccount?>{};
+    String? activeId, pendingId;
+    void emit() => c.add(BankAccounts(active: activeId == null ? null : docs[activeId], pending: pendingId == null ? null : docs[pendingId]));
+
+    void follow(String? id) {
+      if (id == null || subs.containsKey(id)) return;
+      subs[id] = _db.doc('payoutAccounts/$id').snapshots().listen((s) {
+        docs[id] = s.exists ? _bankAccount(s.id, s.data()!) : null;
+        emit();
+      }, onError: (_) {});
+    }
+
+    c = StreamController<BankAccounts>(
+      onListen: () {
+        userSub = _db.doc('users/$_uid').snapshots().listen((u) {
+          activeId = u.data()?['payoutAccountId'] as String?;
+          pendingId = u.data()?['pendingPayoutAccountId'] as String?;
+          follow(activeId);
+          follow(pendingId);
+          emit();
+        }, onError: c.addError);
+      },
+      onCancel: () async {
+        await userSub?.cancel();
+        for (final s in subs.values) {
+          await s.cancel();
+        }
+      },
+    );
+    return c.stream;
+  }
+
+  BankAccount _bankAccount(String id, Map<String, dynamic> m) {
+    final hold = (m['holdUntilMs'] as num?)?.toInt();
+    return BankAccount(
+      id: id,
+      bankCode: m['bankCode'] as String? ?? '',
+      last4: m['accountLast4'] as String? ?? '',
+      accountName: m['accountName'] as String? ?? '',
+      status: m['status'] as String? ?? 'pending_approval',
+      nameMatches: m['nameMatches'] == true,
+      holdUntil: hold == null ? null : DateTime.fromMillisecondsSinceEpoch(hold),
+    );
+  }
+
+  List<Bank>? _banks;
+
+  @override
+  Future<List<Bank>> banks() async {
+    if (_banks != null) return _banks!;
+    final data = await _call('payoutBanks', {});
+    final list = (data['banks'] as List? ?? const []).whereType<Map>().map((b) => Bank('${b['code']}', '${b['name']}')).toList();
+    if (list.isEmpty) throw const ApiException('banks_unavailable', "We couldn't load the list of banks. Try again in a moment.");
+    return _banks = list;
+  }
+
+  @override
+  Future<BankCheck> setBankAccount({required String bankCode, required String accountNumber, required String password, required String pin}) async {
+    await reauthenticate(password);
+    final data = await _call('riderSetPayoutAccount', {'bankCode': bankCode, 'accountNumber': accountNumber, 'pin': pin});
+    return BankCheck(accountName: data['accountName'] as String? ?? '', nameMatches: data['nameMatches'] == true);
+  }
+
+  @override
+  Future<void> withdraw({required int amountKobo, required String pin}) => _call('riderWithdraw', {'amountKobo': amountKobo, 'pin': pin});
+
   Future<Map<String, dynamic>> _call(String name, Map<String, Object?> data) async {
     try {
       final callable = AppConfig.backendUrl.isEmpty ? _functions.httpsCallable(name) : _functions.httpsCallableFromUrl('${AppConfig.backendUrl}/$name');
@@ -151,35 +246,45 @@ class FirebaseRiderApi implements RiderApi {
   }
 }
 
-/// Emits [combine] of the latest values once both streams have produced one.
-Stream<R> _combine<A, B, R>(Stream<A> a, Stream<B> b, R Function(A, B) combine) {
-  late StreamController<R> c;
-  StreamSubscription<A>? sa;
-  StreamSubscription<B>? sb;
-  A? la;
-  B? lb;
-  var hasA = false, hasB = false;
-  void emit() {
-    if (hasA && hasB) c.add(combine(la as A, lb as B));
-  }
-
-  c = StreamController<R>(
+/// The latest value of every stream, once each has produced one.
+Stream<List<T>> _combineAll<T>(List<Stream<T>> streams) {
+  late StreamController<List<T>> c;
+  final subs = <StreamSubscription<T>>[];
+  final latest = List<T?>.filled(streams.length, null);
+  final seen = List<bool>.filled(streams.length, false);
+  c = StreamController<List<T>>(
     onListen: () {
-      sa = a.listen((v) {
-        la = v;
-        hasA = true;
-        emit();
-      }, onError: c.addError);
-      sb = b.listen((v) {
-        lb = v;
-        hasB = true;
-        emit();
-      }, onError: c.addError);
+      for (var i = 0; i < streams.length; i++) {
+        subs.add(
+          streams[i].listen((v) {
+            latest[i] = v;
+            seen[i] = true;
+            if (seen.every((x) => x)) c.add(latest.cast<T>());
+          }, onError: c.addError),
+        );
+      }
     },
     onCancel: () async {
-      await sa?.cancel();
-      await sb?.cancel();
+      for (final s in subs) {
+        await s.cancel();
+      }
     },
   );
   return c.stream;
+}
+
+/// Confirms the password again, so the backend sees a sign-in from the last few minutes.
+Future<void> reauthenticate(String password) async {
+  final user = FirebaseAuth.instance.currentUser!;
+  try {
+    await user.reauthenticateWithCredential(EmailAuthProvider.credential(email: user.email!, password: password));
+    await user.getIdToken(true);
+  } on FirebaseAuthException catch (e) {
+    throw ApiException('wrong_password', switch (e.code) {
+      'wrong-password' || 'invalid-credential' => "That password isn't right.",
+      'too-many-requests' => 'Too many tries. Wait a few minutes, then try again.',
+      'network-request-failed' => 'No connection. Check your data and try again.',
+      _ => e.message ?? "Couldn't confirm your password.",
+    });
+  }
 }

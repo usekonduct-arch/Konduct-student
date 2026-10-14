@@ -39,6 +39,16 @@ String whenText(DateTime t, {DateTime? now}) {
   return '${t.day} ${_months[t.month - 1]}${t.year == n.year ? '' : ' ${t.year}'}, ${_hm(t)}';
 }
 
+/// A future moment: "today at 14:05", "tomorrow at 09:00", "12 Oct at 09:00".
+String untilText(DateTime t, {DateTime? now}) {
+  final n = now ?? DateTime.now();
+  final today = DateTime(n.year, n.month, n.day);
+  final day = DateTime(t.year, t.month, t.day);
+  if (day == today) return 'today at ${_hm(t)}';
+  if (day == today.add(const Duration(days: 1))) return 'tomorrow at ${_hm(t)}';
+  return '${t.day} ${_months[t.month - 1]} at ${_hm(t)}';
+}
+
 /// Plain screen frame for everything after sign-up: round back button, title, scrolling body.
 class PageFrame extends StatelessWidget {
   const PageFrame({super.key, required this.title, required this.child, this.kicker, this.bottom, this.trailing, this.scroll = true});
@@ -154,21 +164,29 @@ class ActivityTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = Palette.of(context);
-    final (IconData icon, Color tint, String title, String sub) = a.isFare
-        ? (
-            Icons.directions_bus_rounded,
-            K.yellow,
-            a.routeName.isEmpty ? 'Ride' : a.routeName,
-            [whenText(a.at), if (a.passengers > 1) '${a.passengers} riders', if (a.reversed) a.status == 'refunded' ? 'Refunded' : 'Undone'].join(' · '),
-          )
-        : (
-            Icons.add_rounded,
-            K.go,
-            'Wallet top-up',
-            [whenText(a.at), if (a.pending) 'Waiting for payment' else if (!a.credited) _topUpStatus(a.status)].join(' · '),
-          );
-    final amountColor = a.isFare ? (a.reversed ? p.subtle : p.text) : (a.credited ? K.green : p.subtle);
-    final sign = a.isFare ? '-' : '+';
+    final (IconData icon, Color tint, String title, String sub) = switch (a.kind) {
+      ActivityKind.fare => (
+        Icons.directions_bus_rounded,
+        K.yellow,
+        a.routeName.isEmpty ? 'Ride' : a.routeName,
+        [whenText(a.at), if (a.passengers > 1) '${a.passengers} riders', if (a.reversed) a.status == 'refunded' ? 'Refunded' : 'Undone'].join(' · '),
+      ),
+      ActivityKind.topUp => (
+        Icons.add_rounded,
+        K.go,
+        'Wallet top-up',
+        [whenText(a.at), if (a.pending) 'Waiting for payment' else if (!a.credited) _topUpStatus(a.status)].join(' · '),
+      ),
+      ActivityKind.withdrawal => (
+        Icons.north_east_rounded,
+        K.sky,
+        'Withdrawal to bank',
+        [whenText(a.at), if (a.reference.isNotEmpty) a.reference, if (a.pending) 'On its way' else if (a.reversed) 'Returned to wallet'].join(' · '),
+      ),
+    };
+    final struck = a.reversed || (a.kind == ActivityKind.topUp && !a.credited && !a.pending);
+    final amountColor = struck ? p.subtle : (a.kind == ActivityKind.topUp ? K.green : p.text);
+    final sign = a.kind == ActivityKind.topUp ? '+' : '-';
     return Pressable(
       scale: 0.98,
       onTap: onTap,
@@ -180,10 +198,10 @@ class ActivityTile extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: tint.withValues(alpha: a.isFare ? 0.22 : 0.14),
+                color: tint.withValues(alpha: a.isFare ? 0.22 : 0.18),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, color: a.isFare ? K.ink : K.green, size: 22),
+              child: Icon(icon, color: a.kind == ActivityKind.topUp ? K.green : K.ink, size: 22),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -202,13 +220,7 @@ class ActivityTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            Text(
-              '$sign${naira(a.amountKobo)}',
-              style: KText.mono(
-                amountColor,
-                size: 15,
-              ).copyWith(decoration: a.reversed || (!a.isFare && !a.credited && !a.pending) ? TextDecoration.lineThrough : null),
-            ),
+            Text('$sign${naira(a.amountKobo)}', style: KText.mono(amountColor, size: 15).copyWith(decoration: struck ? TextDecoration.lineThrough : null)),
           ],
         ),
       ),

@@ -38,6 +38,19 @@ abstract class RiderApi {
 
   /// Puts the account on hold at once (stolen phone). Only an agent can lift it.
   Future<void> lockMyAccount();
+
+  /// Where withdrawals go: the approved account, and any new one waiting for a staff check.
+  Stream<BankAccounts> bankAccounts();
+
+  /// Nigerian banks for the picker.
+  Future<List<Bank>> banks();
+
+  /// Adds or changes the withdrawal account. Confirms the password first (the backend wants a
+  /// sign-in from the last few minutes), then the PIN. A staff member approves the account.
+  Future<BankCheck> setBankAccount({required String bankCode, required String accountNumber, required String password, required String pin});
+
+  /// Sends [amountKobo] to the approved bank account.
+  Future<void> withdraw({required int amountKobo, required String pin});
 }
 
 final _rand = Random.secure();
