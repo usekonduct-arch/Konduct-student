@@ -19,8 +19,10 @@ On the team PC, use the real SDK at `C:\flutter\src\flutter\bin\flutter.bat` (th
 
 ## Demo mode
 
-`flutter run --dart-define=KONDUCT_DEMO=true` runs without Firebase on `DemoAuthRepository`:
+`flutter run --dart-define=KONDUCT_DEMO=true` runs without Firebase on `DemoAuthRepository` and `DemoRiderApi`:
 any email signs up (`taken@konduct.app` plays an email already in use). Student ID `DUP123` plays an ID that is already registered.
+The wallet starts at ₦1,500, the scan screen "scans" a sample shuttle when tapped (₦200 a rider), the demo PIN is `2580`,
+sticker code `OFF000` plays an off-duty vehicle, and a top-up credits itself after two seconds.
 
 ## Sign-in flow
 
@@ -29,10 +31,22 @@ Welcome → email and password (create account or sign in; email isn't verified 
 The screen is chosen from the Firebase ID token's custom claims (`role`, `pin`, `status`, `name`),
 which only the backend can set, so a relaunch needs no network call.
 
+## Wallet
+
+Home (live balance, top up, scan to pay, recent activity) → scan the sticker or type its code, pick riders →
+confirm (driver, plate, route, total; PIN at ₦500+; asks before paying the same vehicle twice) → receipt (offline code
+for the driver, 60-second undo, report a problem). Top-ups open the Bachs checkout in a browser tab and credit when the
+webhook lands; the return page on the website links back with `konduct://wallet`.
+
+Reads are live Firestore listeners limited by the security rules to the rider's own documents; every change is a
+backend callable. Amounts are integer kobo throughout.
+
 ## Layout
 
 - `lib/app/`: `AppInfo` (name, role, palette) and `AppConfig` (backend region, campus), bootstrap
 - `lib/auth/`: repository interface, Firebase and demo implementations, controller, gate, screens
+- `lib/wallet/`: `RiderApi` (Firebase and demo), models, shared wallet widgets, and the home, scan, confirm, receipt,
+  top-up, activity and settings screens
 - `lib/ui/kit.dart`: Pressable, KButton, Keypad, Shake, CodeSlots, PinDots, KMark
 - `lib/ui/scene/`: the korope bus, students and campus, ported from the landing page's SVG art
 - `lib/theme/tokens.dart`: palette and type, shared look with the landing page and the driver app
