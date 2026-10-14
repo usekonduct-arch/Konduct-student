@@ -13,6 +13,9 @@ abstract final class AppInfo {
 /// Backend settings. The region must match `REGION` in konduct-backend/functions/src/config.ts.
 abstract final class AppConfig {
   static const functionsRegion = 'europe-west1';
+  /// The Render server (konduct-backend/functions/src/server.ts), e.g. https://konduct-backend.onrender.com.
+  /// Build with --dart-define=BACKEND_URL=...; empty means Cloud Functions in [functionsRegion].
+  static const backendUrl = String.fromEnvironment('BACKEND_URL');
   static const campusId = 'uniosun';
   static const campusName = 'UNIOSUN';
   static const campusPlace = 'Osun State University';

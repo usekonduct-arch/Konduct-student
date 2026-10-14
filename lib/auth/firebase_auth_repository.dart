@@ -72,7 +72,10 @@ class FirebaseAuthRepository implements AuthRepository {
 
   Future<Object?> _call(String name, Map<String, Object?> data) async {
     try {
-      return (await _functions.httpsCallable(name).call<Object?>(data)).data;
+      final callable = AppConfig.backendUrl.isEmpty
+          ? _functions.httpsCallable(name)
+          : _functions.httpsCallableFromUrl('${AppConfig.backendUrl}/$name');
+      return (await callable.call<Object?>(data)).data;
     } on FirebaseFunctionsException catch (e) {
       throw AuthException(e.code, e.message ?? 'Something went wrong. Try again.');
     }
