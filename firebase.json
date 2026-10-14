@@ -1,1 +1,21 @@
-{"flutter":{"platforms":{"android":{"buildConfigurations":{"src\\rider":{"projectId":"konduct-10ffb","appId":"1:1046053007846:android:11cc874f67b1250807a627","fileOutput":"android/app/src/rider/google-services.json"},"src\\driver":{"projectId":"konduct-10ffb","appId":"1:1046053007846:android:a1aa7f6a51a0247407a627","fileOutput":"android/app/src/driver/google-services.json"}}},"dart":{"lib/firebase/options_rider.dart":{"projectId":"konduct-10ffb","configurations":{"android":"1:1046053007846:android:11cc874f67b1250807a627"}},"lib/firebase/options_driver.dart":{"projectId":"konduct-10ffb","configurations":{"android":"1:1046053007846:android:a1aa7f6a51a0247407a627"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "konduct-10ffb",
+          "appId": "1:1046053007846:android:11cc874f67b1250807a627",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase/options.dart": {
+          "projectId": "konduct-10ffb",
+          "configurations": {
+            "android": "1:1046053007846:android:11cc874f67b1250807a627"
+          }
+        }
+      }
+    }
+  }
+}
