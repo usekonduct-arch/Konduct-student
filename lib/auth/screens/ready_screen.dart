@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../app/flavor.dart';
+import '../../app/app_info.dart';
 import '../../theme/tokens.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
@@ -10,15 +10,13 @@ import '../auth_repository.dart';
 
 /// End of sign-up, and the placeholder home until wallet / scan / trips are built.
 class ReadyScreen extends StatelessWidget {
-  const ReadyScreen({super.key, required this.flavor, required this.session, required this.onSignOut, this.demo = false});
-  final Flavor flavor;
+  const ReadyScreen({super.key, required this.session, required this.onSignOut, this.demo = false});
   final Session session;
   final VoidCallback onSignOut;
   final bool demo;
 
   @override
   Widget build(BuildContext context) {
-    final rider = flavor.isRider;
     final name = session.firstName.isEmpty ? 'friend' : session.firstName;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -32,7 +30,7 @@ class ReadyScreen extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  DriveScene(seats: rider ? 2 : 4),
+                  DriveScene(seats: 2),
                   const Align(alignment: Alignment(0, -0.62), child: _BigTick()),
                   if (demo) const SafeArea(child: Align(alignment: Alignment.topRight, child: Padding(padding: EdgeInsets.all(16), child: DemoBadge()))),
                 ],
@@ -46,16 +44,16 @@ class ReadyScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Entrance(delay: const Duration(milliseconds: 500), child: Text(rider ? 'YOU\'RE ON BOARD' : 'READY TO ROLL', style: KText.kicker(K.go))),
+                      Entrance(delay: const Duration(milliseconds: 500), child: Text('YOU\'RE ON BOARD', style: KText.kicker(K.go))),
                       const SizedBox(height: 10),
-                      Entrance(delay: const Duration(milliseconds: 580), child: Text(rider ? 'Welcome aboard,\n$name.' : 'Welcome,\n$name.', style: KText.hero(K.paper))),
+                      Entrance(delay: const Duration(milliseconds: 580), child: Text('Welcome aboard,\n$name.', style: KText.hero(K.paper))),
                       const SizedBox(height: 18),
                       Entrance(
                         delay: const Duration(milliseconds: 680),
                         child: Wrap(spacing: 8, runSpacing: 8, children: [
                           _Chip(Icons.verified_rounded, prettyPhone(session.phone)),
                           _Chip(Icons.lock_rounded, 'PIN set'),
-                          _Chip(rider ? Icons.school_rounded : Icons.directions_bus_rounded, rider ? AppConfig.campusName : 'Verified driver'),
+                          _Chip(Icons.school_rounded, AppConfig.campusName),
                         ]),
                       ),
                       const Spacer(),
@@ -69,7 +67,7 @@ class ReadyScreen extends StatelessWidget {
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                rider ? 'Your wallet, scan-to-pay and trips land here next.' : 'Your live payment alerts, trips and payouts land here next.',
+                                'Your wallet, scan-to-pay and trips land here next.',
                                 style: KText.small(K.muteDark),
                               ),
                             ),

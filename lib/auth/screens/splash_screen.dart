@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../app/flavor.dart';
 import '../../theme/tokens.dart';
 import '../../ui/kit.dart';
 
 /// K tile pops, the K draws itself, the wordmark rises, a little bus zips under it.
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key, required this.flavor});
-  final Flavor flavor;
+  const SplashScreen({super.key});
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -56,8 +54,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       Opacity(
                         opacity: seg(0.6, 0.9),
                         child: Text(
-                          widget.flavor.isRider ? 'SCAN · PAY · RIDE' : 'DRIVER',
-                          style: KText.kicker(widget.flavor.isRider ? K.muteDark : K.yellow).copyWith(fontSize: 13, letterSpacing: 4),
+                          'SCAN · PAY · RIDE',
+                          style: KText.kicker(K.muteDark).copyWith(fontSize: 13, letterSpacing: 4),
                         ),
                       ),
                     ],

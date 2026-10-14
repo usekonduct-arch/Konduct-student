@@ -9,14 +9,14 @@ import '../auth/demo_auth_repository.dart';
 import '../auth/firebase_auth_repository.dart';
 import '../firebase/firebase_options.dart';
 import '../theme/tokens.dart';
-import 'flavor.dart';
+import 'app_info.dart';
 
-Future<void> bootstrap(Flavor flavor) async {
+Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-  final options = firebaseOptionsFor(flavor);
+  final options = firebaseOptions();
   final AuthRepository repo;
   if (options != null) {
     await Firebase.initializeApp(options: options);
@@ -24,19 +24,18 @@ Future<void> bootstrap(Flavor flavor) async {
   } else {
     repo = DemoAuthRepository();
   }
-  runApp(KonductApp(flavor: flavor, auth: AuthController(repo, flavor)));
+  runApp(KonductApp(auth: AuthController(repo)));
 }
 
 class KonductApp extends StatelessWidget {
-  const KonductApp({super.key, required this.flavor, required this.auth});
-  final Flavor flavor;
+  const KonductApp({super.key, required this.auth});
   final AuthController auth;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: flavor.appName,
+        title: AppInfo.name,
         debugShowCheckedModeBanner: false,
-        theme: buildTheme(flavor.palette, dark: flavor.dark),
+        theme: buildTheme(AppInfo.palette, dark: AppInfo.dark),
         home: AuthGate(auth: auth),
       );
 }

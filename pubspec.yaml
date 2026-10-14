@@ -1,5 +1,5 @@
-name: konduct
-description: "Konduct rider and driver apps (cashless campus transport)."
+name: konduct_student
+description: "Konduct for students: pay campus rides with a scan."
 publish_to: 'none'
 version: 0.1.0
 

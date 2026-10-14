@@ -3,13 +3,12 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:konduct/app/bootstrap.dart';
-import 'package:konduct/app/flavor.dart';
-import 'package:konduct/auth/auth_controller.dart';
-import 'package:konduct/auth/auth_repository.dart';
-import 'package:konduct/auth/demo_auth_repository.dart';
-import 'package:konduct/auth/screens/pin_screen.dart';
-import 'package:konduct/ui/kit.dart';
+import 'package:konduct_student/app/bootstrap.dart';
+import 'package:konduct_student/auth/auth_controller.dart';
+import 'package:konduct_student/auth/auth_repository.dart';
+import 'package:konduct_student/auth/demo_auth_repository.dart';
+import 'package:konduct_student/auth/screens/pin_screen.dart';
+import 'package:konduct_student/ui/kit.dart';
 
 Future<void> settle(WidgetTester t, [int ms = 1200]) async {
   for (var i = 0; i < ms ~/ 100; i++) {
@@ -71,8 +70,8 @@ void main() {
     t.view.devicePixelRatio = 2.75;
     addTearDown(t.view.reset);
 
-    final auth = AuthController(DemoAuthRepository(), Flavor.rider);
-    await t.pumpWidget(KonductApp(flavor: Flavor.rider, auth: auth));
+    final auth = AuthController(DemoAuthRepository());
+    await t.pumpWidget(KonductApp(auth: auth));
     await settle(t, 2600);
     expect(auth.stage, Stage.signedOut);
 
@@ -114,8 +113,8 @@ void main() {
     addTearDown(t.view.reset);
 
     final repo = DemoAuthRepository();
-    final auth = AuthController(repo, Flavor.rider);
-    await t.pumpWidget(KonductApp(flavor: Flavor.rider, auth: auth));
+    final auth = AuthController(repo);
+    await t.pumpWidget(KonductApp(auth: auth));
     await settle(t, 2600);
     await t.runAsync(() async {
       await repo.sendCode('+2348031234567');
@@ -132,27 +131,6 @@ void main() {
     await settle(t, 2000);
     expect(auth.stage, Stage.riderProfile);
     expect(find.textContaining('already on another account'), findsOneWidget);
-
-    await t.pumpWidget(const SizedBox());
-    await settle(t, 1500);
-  });
-
-  testWidgets('driver without an agent record is told how to get onboarded', (t) async {
-    t.view.physicalSize = const Size(1080, 2340);
-    t.view.devicePixelRatio = 2.75;
-    addTearDown(t.view.reset);
-
-    final repo = DemoAuthRepository();
-    final auth = AuthController(repo, Flavor.driver);
-    await t.pumpWidget(KonductApp(flavor: Flavor.driver, auth: auth));
-    await settle(t, 2600);
-    await t.runAsync(() async {
-      await repo.sendCode('+2348030000000');
-      await repo.verifyCode('123456');
-    });
-    await settle(t, 2500);
-    expect(auth.stage, Stage.driverClaim);
-    expect(find.text('We don\'t have you yet.'), findsOneWidget);
 
     await t.pumpWidget(const SizedBox());
     await settle(t, 1500);

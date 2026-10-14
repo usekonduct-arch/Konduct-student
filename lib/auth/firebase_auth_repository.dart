@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../app/flavor.dart';
+import '../app/app_info.dart';
 import 'auth_repository.dart';
 
 class FirebaseAuthRepository implements AuthRepository {
@@ -73,19 +73,6 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<void> registerRider({required String fullName, required String studentId}) async {
     await _call('registerRider', {'fullName': fullName, 'studentId': studentId});
     await _auth.currentUser?.getIdToken(true);
-  }
-
-  @override
-  Future<DriverInvite?> claimDriver() async {
-    final data = Map<String, dynamic>.from(await _call('claimDriverAccount', {}) as Map);
-    if (data['invited'] != true) return null;
-    await _auth.currentUser?.getIdToken(true);
-    return DriverInvite(
-      fullName: data['fullName'] as String,
-      plate: data['plate'] as String,
-      vehicleType: data['vehicleType'] as String,
-      route: (data['route'] as String?) ?? '',
-    );
   }
 
   @override

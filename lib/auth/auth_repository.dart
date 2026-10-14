@@ -13,12 +13,6 @@ class Session {
   String get firstName => (name ?? '').trim().split(' ').first;
 }
 
-/// A driver record an agent created at the park before the driver ever opened the app (FR-AUTH-03).
-class DriverInvite {
-  const DriverInvite({required this.fullName, required this.plate, required this.vehicleType, required this.route});
-  final String fullName, plate, vehicleType, route;
-}
-
 class AuthException implements Exception {
   const AuthException(this.code, this.message);
   final String code;
@@ -41,9 +35,6 @@ abstract class AuthRepository {
   Future<void> verifyCode(String code);
 
   Future<void> registerRider({required String fullName, required String studentId});
-
-  /// Links this phone number to a driver invite. Returns null when no agent has onboarded it.
-  Future<DriverInvite?> claimDriver();
 
   Future<void> setPin(String pin);
 

@@ -23,7 +23,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.konduct.konduct"
+        applicationId = "com.konduct.rider"
         // SRS 2.3: Android 8+.
         minSdk = 26
         targetSdk = flutter.targetSdkVersion
@@ -31,20 +31,6 @@ android {
         versionName = flutter.versionName
     }
 
-    // One codebase, two apps (SRS 3.1). Run with --flavor rider -t lib/main_rider.dart, or driver.
-    flavorDimensions += "app"
-    productFlavors {
-        create("rider") {
-            dimension = "app"
-            applicationId = "com.konduct.rider"
-            resValue("string", "app_name", "Konduct")
-        }
-        create("driver") {
-            dimension = "app"
-            applicationId = "com.konduct.driver"
-            resValue("string", "app_name", "Konduct Driver")
-        }
-    }
 
     buildTypes {
         release {

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
 import 'auth_controller.dart';
-import 'screens/driver_claim_screen.dart';
 import 'screens/otp_screen.dart';
 import 'screens/phone_screen.dart';
 import 'screens/pin_screen.dart';
@@ -34,15 +33,13 @@ class AuthGate extends StatelessWidget {
   }
 
   Widget _screen(BuildContext context) {
-    final f = auth.flavor;
     final demo = auth.repo.isDemo;
-    final rider = f.isRider;
-    // Rider: phone, code, profile, PIN. Driver: phone, code, PIN (the profile comes from the agent).
-    double step(int n) => n / (rider ? 4 : 3);
+    // Phone, code, profile, PIN.
+    double step(int n) => n / (4);
 
     switch (auth.stage) {
       case Stage.booting:
-        return SplashScreen(flavor: f);
+        return const SplashScreen();
       case Stage.signedOut:
         return _SignedOutFlow(auth: auth, progress: step);
       case Stage.riderProfile:
@@ -52,22 +49,19 @@ class AuthGate extends StatelessWidget {
           onSubmit: auth.registerRider,
           onSignOut: auth.signOut,
         );
-      case Stage.driverClaim:
-        return DriverClaimScreen(phone: auth.session?.phone ?? '', demo: demo, onClaim: auth.claimDriver, onSignOut: auth.signOut);
       case Stage.pin:
         return PinScreen(
-          progress: step(rider ? 4 : 3),
+          progress: step(4),
           demo: demo,
           onSave: auth.setPin,
           onBack: auth.signOut,
-          header: rider ? null : _DriverCard(auth: auth),
         );
       case Stage.ready:
-        return ReadyScreen(flavor: f, session: auth.session!, demo: demo, onSignOut: auth.signOut);
+        return ReadyScreen(session: auth.session!, demo: demo, onSignOut: auth.signOut);
       case Stage.wrongApp:
         return BlockedScreen(
-          title: rider ? 'This number belongs to a driver.' : 'This number belongs to a rider.',
-          message: rider ? 'Drivers use the Konduct Driver app. Sign out and use a different number to ride.' : 'Students pay with the Konduct app. If you also drive, ask an agent to set up a separate driver number.',
+          title: 'This number belongs to a driver.',
+          message: 'Drivers use the Konduct Driver app. Sign out and use a different number to ride.',
           onSignOut: auth.signOut,
         );
       case Stage.suspended:
@@ -105,7 +99,7 @@ class _SignedOutFlowState extends State<_SignedOutFlow> {
     final auth = widget.auth;
     final demo = auth.repo.isDemo;
     final child = switch (_step) {
-      _Step.welcome => WelcomeScreen(flavor: auth.flavor, demo: demo, onStart: () => _go(_Step.phone)),
+      _Step.welcome => WelcomeScreen(demo: demo, onStart: () => _go(_Step.phone)),
       _Step.phone => PhoneScreen(
           progress: widget.progress(1),
           demo: demo,
@@ -146,40 +140,6 @@ class _SignedOutFlowState extends State<_SignedOutFlow> {
         },
         child: KeyedSubtree(key: ValueKey(_step), child: child),
       ),
-    );
-  }
-}
-
-/// "Is this you?" card above the driver's PIN, from the agent's record.
-class _DriverCard extends StatelessWidget {
-  const _DriverCard({required this.auth});
-  final AuthController auth;
-
-  @override
-  Widget build(BuildContext context) {
-    final inv = auth.invite;
-    final name = inv?.fullName ?? auth.session?.name ?? 'Driver';
-    final p = Palette.of(context);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: p.surface, borderRadius: BorderRadius.circular(22), border: Border.all(color: p.border)),
-      child: Row(children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(color: K.yellow, borderRadius: BorderRadius.circular(15)),
-          alignment: Alignment.center,
-          child: Text(name.split(' ').map((w) => w.isEmpty ? '' : w[0]).take(2).join(), style: KText.h3(K.ink)),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name, style: KText.h3(p.text)),
-            Text(inv == null ? 'Verified driver' : '${inv.vehicleType} · ${inv.plate}', style: KText.mono(p.subtle, size: 12.5)),
-          ]),
-        ),
-        const Icon(Icons.verified_rounded, color: K.go),
-      ]),
     );
   }
 }
