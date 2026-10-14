@@ -51,7 +51,7 @@ class ReadyScreen extends StatelessWidget {
                       Entrance(
                         delay: const Duration(milliseconds: 680),
                         child: Wrap(spacing: 8, runSpacing: 8, children: [
-                          _Chip(Icons.verified_rounded, prettyPhone(session.phone)),
+                          _Chip(Icons.alternate_email_rounded, session.email),
                           _Chip(Icons.lock_rounded, 'PIN set'),
                           _Chip(Icons.school_rounded, AppConfig.campusName),
                         ]),

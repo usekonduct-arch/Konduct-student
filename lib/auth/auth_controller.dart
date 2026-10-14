@@ -27,8 +27,8 @@ class AuthController extends ChangeNotifier {
   bool _gotSession = false;
   bool _splashDone = false;
 
-  /// Phone number the last code was sent to.
-  String? phone;
+  /// Email typed on the last sign-in attempt, to pre-fill after a sign-out.
+  String? email;
 
   void _onSession(Session? s) {
     session = s;
@@ -53,12 +53,17 @@ class AuthController extends ChangeNotifier {
     return Stage.ready;
   }
 
-  Future<void> sendCode(String e164, {bool resend = false}) async {
-    phone = e164;
-    await repo.sendCode(e164, resend: resend);
+  Future<void> signIn(String email, String password) {
+    this.email = email;
+    return repo.signIn(email, password);
   }
 
-  Future<void> verifyCode(String code) => repo.verifyCode(code);
+  Future<void> signUp(String email, String password) {
+    this.email = email;
+    return repo.signUp(email, password);
+  }
+
+  Future<void> sendPasswordReset(String email) => repo.sendPasswordReset(email);
 
   Future<void> registerRider(String fullName, String studentId) => repo.registerRider(fullName: fullName, studentId: studentId);
 

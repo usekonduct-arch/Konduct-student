@@ -1,10 +1,10 @@
-/// What the app knows about the signed-in person. Everything except uid/phone comes from
+/// What the app knows about the signed-in person. Everything except uid/email comes from
 /// custom claims that only the backend can set (SRS FR-AUTH-05), so it is readable offline.
 class Session {
-  const Session({required this.uid, required this.phone, this.role, this.pinSet = false, this.status = 'active', this.name});
+  const Session({required this.uid, required this.email, this.role, this.pinSet = false, this.status = 'active', this.name});
 
   final String uid;
-  final String phone;
+  final String email;
   final String? role; // 'rider' | 'driver' | staff roles; null until the backend assigns one
   final bool pinSet;
   final String status; // 'active' | 'suspended'
@@ -28,12 +28,14 @@ abstract class AuthRepository {
   /// Emits the current session on sign-in, sign-out and every token refresh.
   Stream<Session?> sessions();
 
-  /// Sends an SMS code. Completes when the code is on its way; on Android the SMS may be
-  /// read automatically, in which case [sessions] emits a signed-in session by itself.
-  Future<void> sendCode(String e164, {bool resend = false});
+  Future<void> signIn(String email, String password);
 
-  Future<void> verifyCode(String code);
+  /// Creates the account and signs in. The email is not verified yet (planned for later).
+  Future<void> signUp(String email, String password);
 
+  Future<void> sendPasswordReset(String email);
+
+  /// FR-AUTH-01/02: name + student ID; the backend makes this account a rider.
   Future<void> registerRider({required String fullName, required String studentId});
 
   Future<void> setPin(String pin);
@@ -41,17 +43,6 @@ abstract class AuthRepository {
   Future<void> signOut();
 }
 
-/// Nigerian mobile numbers: accepts 0803..., 803..., 234803..., +234803...
-String? toE164(String input) {
-  var d = input.replaceAll(RegExp(r'\D'), '');
-  if (d.startsWith('234')) d = d.substring(3);
-  if (d.startsWith('0')) d = d.substring(1);
-  if (d.length != 10 || !RegExp(r'^[789][01]').hasMatch(d)) return null;
-  return '+234$d';
-}
+final _email = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$');
 
-String prettyPhone(String e164) {
-  final d = e164.replaceFirst('+234', '');
-  if (d.length != 10) return e164;
-  return '+234 ${d.substring(0, 3)} ${d.substring(3, 6)} ${d.substring(6)}';
-}
+bool looksLikeEmail(String s) => _email.hasMatch(s.trim());

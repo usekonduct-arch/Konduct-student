@@ -2,14 +2,14 @@ import 'dart:async';
 
 import 'auth_repository.dart';
 
-/// Stand-in used while no Firebase project is configured, so every screen can be
-/// tried on a device. Code is always 123456. Student ID "DUP123" plays a duplicate.
+/// Stand-in used without Firebase (`--dart-define=KONDUCT_DEMO=true`) so every screen can be
+/// tried on a device. Any email signs up; `taken@konduct.app` plays an email already in use.
+/// Signing in needs the password the account was created with in this session.
+/// Student ID "DUP123" plays an ID that is already registered.
 class DemoAuthRepository implements AuthRepository {
-  static const code = '123456';
-
   final _ctrl = StreamController<Session?>.broadcast();
+  final _accounts = <String, String>{};
   Session? _session;
-  String? _phone;
 
   @override
   bool get isDemo => true;
@@ -22,20 +22,27 @@ class DemoAuthRepository implements AuthRepository {
 
   void _emit(Session? s) => _ctrl.add(_session = s);
 
-  Future<void> _lag([int ms = 900]) => Future.delayed(Duration(milliseconds: ms));
+  Future<void> _lag([int ms = 800]) => Future.delayed(Duration(milliseconds: ms));
 
   @override
-  Future<void> sendCode(String e164, {bool resend = false}) async {
+  Future<void> signUp(String email, String password) async {
     await _lag();
-    _phone = e164;
+    if (email == 'taken@konduct.app' || _accounts.containsKey(email)) {
+      throw const AuthException('email-already-in-use', 'There\'s already an account with this email. Sign in instead.');
+    }
+    _accounts[email] = password;
+    _emit(Session(uid: 'demo-${email.hashCode}', email: email));
   }
 
   @override
-  Future<void> verifyCode(String c) async {
-    await _lag(700);
-    if (c != code) throw const AuthException('invalid-verification-code', 'That code isn\'t right. (Demo code: 123456)');
-    _emit(Session(uid: 'demo', phone: _phone ?? ''));
+  Future<void> signIn(String email, String password) async {
+    await _lag();
+    if (_accounts[email] != password) throw const AuthException('invalid-credential', 'That email and password don\'t match an account.');
+    _emit(Session(uid: 'demo-${email.hashCode}', email: email));
   }
+
+  @override
+  Future<void> sendPasswordReset(String email) => _lag(500);
 
   @override
   Future<void> registerRider({required String fullName, required String studentId}) async {
@@ -44,14 +51,14 @@ class DemoAuthRepository implements AuthRepository {
       throw const AuthException('already-exists', 'That student ID is already on another account. If it\'s yours, talk to a Konduct agent.');
     }
     final s = _session!;
-    _emit(Session(uid: s.uid, phone: s.phone, role: 'rider', name: fullName));
+    _emit(Session(uid: s.uid, email: s.email, role: 'rider', name: fullName));
   }
 
   @override
   Future<void> setPin(String pin) async {
     await _lag();
     final s = _session!;
-    _emit(Session(uid: s.uid, phone: s.phone, role: s.role, name: s.name, pinSet: true));
+    _emit(Session(uid: s.uid, email: s.email, role: s.role, name: s.name, pinSet: true));
   }
 
   @override

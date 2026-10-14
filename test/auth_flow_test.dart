@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:konduct_student/app/bootstrap.dart';
 import 'package:konduct_student/auth/auth_controller.dart';
@@ -40,20 +40,37 @@ Future<void> loadFonts() async {
   }
 }
 
+void phoneSize(WidgetTester t) {
+  t.view.physicalSize = const Size(1080, 2340);
+  t.view.devicePixelRatio = 2.75;
+  addTearDown(t.view.reset);
+}
+
+/// From the welcome screen: open the account screen, pick a tab, fill both fields, submit.
+Future<void> account(WidgetTester t, {required String email, required String password, bool signUp = true}) async {
+  await t.tap(find.text('Get started'));
+  await settle(t);
+  if (!signUp) {
+    await t.tap(find.text('Sign in').first);
+    await settle(t, 600);
+  }
+  await t.enterText(find.byType(TextField).at(0), email);
+  await t.enterText(find.byType(TextField).at(1), password);
+  FocusManager.instance.primaryFocus?.unfocus();
+  await settle(t, 400);
+  await t.tap(find.text(signUp ? 'Create account' : 'Sign in').last);
+  await settle(t, 1600);
+}
+
 void main() {
   setUpAll(loadFonts);
 
-  group('phone numbers', () {
-    test('normalises Nigerian formats', () {
-      expect(toE164('0803 123 4567'), '+2348031234567');
-      expect(toE164('8031234567'), '+2348031234567');
-      expect(toE164('+234 803 123 4567'), '+2348031234567');
-      expect(toE164('2349031234567'), '+2349031234567');
-    });
-    test('rejects non-mobile numbers', () {
-      expect(toE164('0123456789'), isNull);
-      expect(toE164('080312345'), isNull);
-    });
+  test('email shape check', () {
+    expect(looksLikeEmail('ada@uniosun.edu.ng'), isTrue);
+    expect(looksLikeEmail(' ada.okafor+ride@gmail.com '), isTrue);
+    for (final bad in ['ada', 'ada@', '@uniosun.edu.ng', 'ada@uniosun', 'ada okafor@gmail.com', '']) {
+      expect(looksLikeEmail(bad), isFalse, reason: bad);
+    }
   });
 
   test('weak PINs are refused', () {
@@ -65,25 +82,14 @@ void main() {
     }
   });
 
-  testWidgets('rider signs up end to end in demo mode', (t) async {
-    t.view.physicalSize = const Size(1080, 2340);
-    t.view.devicePixelRatio = 2.75;
-    addTearDown(t.view.reset);
-
+  testWidgets('a student signs up end to end in demo mode', (t) async {
+    phoneSize(t);
     final auth = AuthController(DemoAuthRepository());
     await t.pumpWidget(KonductApp(auth: auth));
     await settle(t, 2600);
     expect(auth.stage, Stage.signedOut);
 
-    await t.tap(find.text('Get started'));
-    await settle(t);
-    await keypad(t, '08031234567');
-    await t.tap(find.text('Send code'));
-    await settle(t, 1800);
-    expect(find.text('Enter the code'), findsOneWidget);
-
-    await keypad(t, '123456');
-    await settle(t, 1800);
+    await account(t, email: 'ada@uniosun.edu.ng', password: 'ride-the-bus-1');
     expect(auth.stage, Stage.riderProfile);
 
     await t.enterText(find.byType(TextField).at(0), 'Adaeze Okafor');
@@ -102,24 +108,63 @@ void main() {
     await settle(t, 2400);
     expect(auth.stage, Stage.ready);
     expect(find.textContaining('Welcome aboard'), findsOneWidget);
+    expect(find.text('ada@uniosun.edu.ng'), findsOneWidget);
+
+    await t.pumpWidget(const SizedBox());
+    await settle(t, 1500);
+  });
+
+  testWidgets('a short password is caught before anything is sent', (t) async {
+    phoneSize(t);
+    final auth = AuthController(DemoAuthRepository());
+    await t.pumpWidget(KonductApp(auth: auth));
+    await settle(t, 2600);
+    await t.tap(find.text('Get started'));
+    await settle(t);
+    await t.enterText(find.byType(TextField).at(0), 'ada@uniosun.edu.ng');
+    await t.enterText(find.byType(TextField).at(1), 'short');
+    await settle(t, 400);
+    expect(find.text('3 more'), findsOneWidget); // the meter counts down to 8 characters
+    await t.tap(find.text('Create account').last);
+    await settle(t, 800);
+    expect(auth.stage, Stage.signedOut); // the button stays disabled below 8 characters
+
+    await t.pumpWidget(const SizedBox());
+    await settle(t, 1500);
+  });
+
+  testWidgets('a wrong password and a taken email are explained, not crashed', (t) async {
+    phoneSize(t);
+    final repo = DemoAuthRepository();
+    final auth = AuthController(repo);
+    await t.pumpWidget(KonductApp(auth: auth));
+    await settle(t, 2600);
+
+    await account(t, email: 'taken@konduct.app', password: 'whatever-123');
+    expect(auth.stage, Stage.signedOut);
+    expect(find.textContaining('already an account'), findsOneWidget);
+
+    await t.tap(find.text('Sign in').first);
+    await settle(t, 600);
+    await t.enterText(find.byType(TextField).at(1), 'wrong-password');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await settle(t, 400);
+    await t.tap(find.text('Sign in').last);
+    await settle(t, 1600);
+    expect(auth.stage, Stage.signedOut);
+    expect(find.textContaining('don\'t match'), findsOneWidget);
 
     await t.pumpWidget(const SizedBox());
     await settle(t, 1500);
   });
 
   testWidgets('a duplicate student ID is refused with a message', (t) async {
-    t.view.physicalSize = const Size(1080, 2340);
-    t.view.devicePixelRatio = 2.75;
-    addTearDown(t.view.reset);
-
+    phoneSize(t);
     final repo = DemoAuthRepository();
     final auth = AuthController(repo);
     await t.pumpWidget(KonductApp(auth: auth));
     await settle(t, 2600);
-    await t.runAsync(() async {
-      await repo.sendCode('+2348031234567');
-      await repo.verifyCode('123456');
-    });
+    await t.runAsync(() => repo.signUp('ade@uniosun.edu.ng', 'ride-the-bus-1'));
     await settle(t, 1500);
 
     await t.enterText(find.byType(TextField).at(0), 'Ade Bello');

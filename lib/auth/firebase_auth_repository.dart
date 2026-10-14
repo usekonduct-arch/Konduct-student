@@ -11,8 +11,6 @@ class FirebaseAuthRepository implements AuthRepository {
 
   final _auth = FirebaseAuth.instance;
   final FirebaseFunctions _functions;
-  String? _verificationId;
-  int? _resendToken;
 
   @override
   bool get isDemo => false;
@@ -25,7 +23,7 @@ class FirebaseAuthRepository implements AuthRepository {
     final claims = (await user.getIdTokenResult()).claims ?? const {};
     return Session(
       uid: user.uid,
-      phone: user.phoneNumber ?? '',
+      email: user.email ?? '',
       role: claims['role'] as String?,
       pinSet: claims['pin'] == true,
       status: (claims['status'] as String?) ?? 'active',
@@ -34,38 +32,18 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> sendCode(String e164, {bool resend = false}) {
-    final done = Completer<void>();
-    _auth.verifyPhoneNumber(
-      phoneNumber: e164,
-      timeout: const Duration(seconds: 60),
-      forceResendingToken: resend ? _resendToken : null,
-      verificationCompleted: (credential) async {
-        // Android read the SMS for us.
-        await _auth.signInWithCredential(credential);
-        if (!done.isCompleted) done.complete();
-      },
-      verificationFailed: (e) {
-        if (!done.isCompleted) done.completeError(_mapAuth(e));
-      },
-      codeSent: (id, token) {
-        _verificationId = id;
-        _resendToken = token;
-        if (!done.isCompleted) done.complete();
-      },
-      codeAutoRetrievalTimeout: (id) => _verificationId = id,
-    );
-    return done.future;
-  }
+  Future<void> signIn(String email, String password) => _guard(() => _auth.signInWithEmailAndPassword(email: email, password: password));
 
   @override
-  Future<void> verifyCode(String code) async {
-    final id = _verificationId;
-    if (id == null) throw const AuthException('no-session', 'Send yourself a new code first.');
+  Future<void> signUp(String email, String password) => _guard(() => _auth.createUserWithEmailAndPassword(email: email, password: password));
+
+  @override
+  Future<void> sendPasswordReset(String email) async {
     try {
-      await _auth.signInWithCredential(PhoneAuthProvider.credential(verificationId: id, smsCode: code));
+      await _auth.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
-      throw _mapAuth(e);
+      // Don't reveal whether an account exists for this email.
+      if (e.code != 'user-not-found') throw _map(e);
     }
   }
 
@@ -84,6 +62,14 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<void> signOut() => _auth.signOut();
 
+  Future<void> _guard(Future<Object?> Function() f) async {
+    try {
+      await f();
+    } on FirebaseAuthException catch (e) {
+      throw _map(e);
+    }
+  }
+
   Future<Object?> _call(String name, Map<String, Object?> data) async {
     try {
       return (await _functions.httpsCallable(name).call<Object?>(data)).data;
@@ -92,14 +78,15 @@ class FirebaseAuthRepository implements AuthRepository {
     }
   }
 
-  AuthException _mapAuth(FirebaseAuthException e) => AuthException(e.code, switch (e.code) {
-        'invalid-phone-number' => 'That number doesn\'t look right.',
-        'invalid-verification-code' => 'That code isn\'t right. Check the SMS and try again.',
-        'session-expired' || 'code-expired' => 'That code has expired. Send a new one.',
+  AuthException _map(FirebaseAuthException e) => AuthException(e.code, switch (e.code) {
+        'invalid-email' => 'That email address doesn\'t look right.',
+        'invalid-credential' || 'wrong-password' || 'user-not-found' => 'That email and password don\'t match an account.',
+        'email-already-in-use' => 'There\'s already an account with this email. Sign in instead.',
+        'weak-password' => 'Choose a stronger password: at least 8 characters.',
         'too-many-requests' => 'Too many tries. Wait a few minutes, then try again.',
         'network-request-failed' => 'No connection. Check your data and try again.',
-        'quota-exceeded' => 'We can\'t send codes right now. Try again shortly.',
         'user-disabled' => 'This account has been locked. Talk to a Konduct agent.',
+        'operation-not-allowed' => 'Email sign-in isn\'t switched on yet. Please try again later.',
         _ => e.message ?? 'Something went wrong. Try again.',
       });
 }

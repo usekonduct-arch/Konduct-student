@@ -20,11 +20,11 @@ On the team PC, use the real SDK at `C:\flutter\src\flutter\bin\flutter.bat` (th
 ## Demo mode
 
 `flutter run --dart-define=KONDUCT_DEMO=true` runs without Firebase on `DemoAuthRepository`:
-the SMS code is always `123456`. Student ID `DUP123` plays an ID that is already registered.
+any email signs up (`taken@konduct.app` plays an email already in use). Student ID `DUP123` plays an ID that is already registered.
 
 ## Sign-in flow
 
-Welcome → phone → SMS code → name and student ID (one account per student ID per campus) → transaction PIN → ready.
+Welcome → email and password (create account or sign in; email isn't verified yet) → name and student ID (one account per student ID per campus) → transaction PIN → ready.
 
 The screen is chosen from the Firebase ID token's custom claims (`role`, `pin`, `status`, `name`),
 which only the backend can set, so a relaunch needs no network call.

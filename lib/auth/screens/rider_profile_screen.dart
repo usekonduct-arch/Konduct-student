@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/app_info.dart';
 import '../../theme/tokens.dart';
+import '../../ui/field.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
 import '../auth_repository.dart';
@@ -126,7 +127,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
               const SizedBox(height: 14),
               Entrance(
                 delay: const Duration(milliseconds: 220),
-                child: _Field(
+                child: KField(
                   controller: _name,
                   label: 'Full name',
                   hint: 'Adaeze Okafor',
@@ -139,7 +140,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
               const SizedBox(height: 12),
               Entrance(
                 delay: const Duration(milliseconds: 280),
-                child: _Field(
+                child: KField(
                   controller: _id,
                   label: 'Student ID / matric number',
                   hint: 'e.g. UNI/2023/04571',
@@ -193,96 +194,4 @@ class _CampusCard extends StatelessWidget {
           ],
         ),
       );
-}
-
-class _Field extends StatefulWidget {
-  const _Field({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    required this.icon,
-    this.enabled = true,
-    this.capitalization = TextCapitalization.none,
-    this.mono = false,
-    this.error = false,
-    this.action,
-    this.formatters,
-    this.onSubmitted,
-  });
-  final TextEditingController controller;
-  final String label, hint;
-  final IconData icon;
-  final bool enabled, mono, error;
-  final TextCapitalization capitalization;
-  final TextInputAction? action;
-  final List<TextInputFormatter>? formatters;
-  final ValueChanged<String>? onSubmitted;
-
-  @override
-  State<_Field> createState() => _FieldState();
-}
-
-class _FieldState extends State<_Field> {
-  final _focus = FocusNode();
-  @override
-  void initState() {
-    super.initState();
-    _focus.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _focus.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = Palette.of(context);
-    final on = _focus.hasFocus;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-      decoration: BoxDecoration(
-        color: p.field,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: widget.error ? K.coral : (on ? K.ink : p.border), width: on || widget.error ? 2 : 1.4),
-        boxShadow: [if (on) BoxShadow(color: K.yellow.withValues(alpha: 0.35), blurRadius: 0, spreadRadius: 4)],
-      ),
-      child: Row(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(color: on ? K.yellow : p.bg, borderRadius: BorderRadius.circular(11)),
-            child: Icon(widget.icon, size: 20, color: p.text),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: widget.controller,
-              focusNode: _focus,
-              enabled: widget.enabled,
-              textCapitalization: widget.capitalization,
-              textInputAction: widget.action,
-              inputFormatters: widget.formatters,
-              onSubmitted: widget.onSubmitted,
-              autocorrect: false,
-              style: (widget.mono ? KText.mono(p.text, size: 17) : KText.body(p.text).copyWith(fontSize: 17, fontWeight: FontWeight.w700)),
-              decoration: InputDecoration(
-                labelText: widget.label,
-                hintText: widget.hint,
-                labelStyle: KText.small(p.subtle),
-                floatingLabelStyle: KText.small(p.subtle),
-                hintStyle: KText.body(p.subtle.withValues(alpha: 0.5)),
-                border: InputBorder.none,
-                isDense: true,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
