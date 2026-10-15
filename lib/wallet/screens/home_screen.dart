@@ -8,6 +8,7 @@ import '../../theme/tokens.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
 import '../../ui/web_screen.dart';
+import '../../messages/messages_ui.dart';
 import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
@@ -78,140 +79,159 @@ class _HomeScreenState extends State<HomeScreen> {
   void _withdraw() => pushScreen(context, WithdrawScreen(api: api));
   void _open(Activity a) => openActivity(context, api, a);
 
+  /// Screens an ad or message can open with an app: link.
+  late final AppActions _actions = {
+    'topup': _topUp,
+    'scan': _scan,
+    'withdraw': _withdraw,
+    'activity': () => pushScreen(context, ActivityScreen(api: api)),
+    'account': () => pushScreen(context, SettingsScreen(api: api, session: widget.session, onSignOut: widget.onSignOut)),
+  };
+
   @override
   Widget build(BuildContext context) {
     final p = Palette.of(context);
     final name = widget.session.firstName.isEmpty ? 'there' : widget.session.firstName;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
-      child: Scaffold(
-        backgroundColor: p.bg,
-        body: SafeArea(
-          bottom: false,
-          child: RefreshIndicator(
-            onRefresh: _refresh,
-            color: K.ink,
-            backgroundColor: K.yellow,
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                  // One box, not a lazy list: these sections must keep their stream subscriptions when scrolled away.
-                  sliver: SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            const KMark(size: 40),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Hi, $name', style: KText.h3(p.text)),
-                                  Text(_greeting(), style: KText.small(p.subtle)),
-                                ],
-                              ),
-                            ),
-                            if (api.isDemo) const Padding(padding: EdgeInsets.only(right: 10), child: DemoBadge()),
-                            SupportButton(api: api.support),
-                            const SizedBox(width: 8),
-                            RoundIconButton(
-                              icon: Icons.person_rounded,
-                              tooltip: 'Account',
-                              onTap: () => pushScreen(context, SettingsScreen(api: api, session: widget.session, onSignOut: widget.onSignOut)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        StreamBuilder<bool>(
-                          stream: _paused,
-                          builder: (_, s) => AnimatedSize(
-                            duration: const Duration(milliseconds: 300),
-                            child: s.data == true
-                                ? const Padding(padding: EdgeInsets.only(bottom: 14), child: _PausedBanner())
-                                : const SizedBox(width: double.infinity),
-                          ),
-                        ),
-                        Entrance(
-                          child: StreamBuilder<int?>(
-                            stream: _balance,
-                            builder: (_, s) => _BalanceCard(
-                              kobo: s.data,
-                              hidden: _hidden,
-                              onToggle: () => setState(() => _hidden = !_hidden),
-                              onTopUp: _topUp,
-                              onWithdraw: _withdraw,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Entrance(
-                          delay: const Duration(milliseconds: 80),
-                          child: _ScanCard(onTap: _scan),
-                        ),
-                        StreamBuilder<List<Activity>>(
-                          stream: _rateable,
-                          builder: (_, s) => _RatePrompt(api: api, fares: s.data ?? const []),
-                        ),
-                        StreamBuilder<List<Park>>(
-                          stream: _parks,
-                          builder: (_, s) => (s.data ?? const []).isEmpty
-                              ? const SizedBox.shrink()
-                              : Padding(
-                                  padding: const EdgeInsets.only(top: 28),
-                                  child: ParksStrip(parks: s.data!),
+      child: MessagesHost(
+        api: api.messages,
+        actions: _actions,
+        child: Scaffold(
+          backgroundColor: p.bg,
+          body: SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
+              onRefresh: _refresh,
+              color: K.ink,
+              backgroundColor: K.yellow,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                    // One box, not a lazy list: these sections must keep their stream subscriptions when scrolled away.
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              const KMark(size: 40),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Hi, $name', style: KText.h3(p.text)),
+                                    Text(_greeting(), style: KText.small(p.subtle)),
+                                  ],
                                 ),
-                        ),
-                        const SizedBox(height: 28),
-                        Row(
-                          children: [
-                            Text('RECENT', style: KText.kicker(p.subtle)),
-                            const Spacer(),
-                            Pressable(
-                              onTap: () => pushScreen(context, ActivityScreen(api: api)),
-                              child: Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Text('See all', style: KText.small(p.text).copyWith(decoration: TextDecoration.underline)),
+                              ),
+                              if (api.isDemo) const Padding(padding: EdgeInsets.only(right: 10), child: DemoBadge()),
+                              NoticeBell(api: api.messages, actions: _actions),
+                              const SizedBox(width: 8),
+                              SupportButton(api: api.support),
+                              const SizedBox(width: 8),
+                              RoundIconButton(
+                                icon: Icons.person_rounded,
+                                tooltip: 'Account',
+                                onTap: () => pushScreen(context, SettingsScreen(api: api, session: widget.session, onSignOut: widget.onSignOut)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          StreamBuilder<bool>(
+                            stream: _paused,
+                            builder: (_, s) => AnimatedSize(
+                              duration: const Duration(milliseconds: 300),
+                              child: s.data == true
+                                  ? const Padding(padding: EdgeInsets.only(bottom: 14), child: _PausedBanner())
+                                  : const SizedBox(width: double.infinity),
+                            ),
+                          ),
+                          Entrance(
+                            child: StreamBuilder<int?>(
+                              stream: _balance,
+                              builder: (_, s) => _BalanceCard(
+                                kobo: s.data,
+                                hidden: _hidden,
+                                onToggle: () => setState(() => _hidden = !_hidden),
+                                onTopUp: _topUp,
+                                onWithdraw: _withdraw,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                      ],
+                          ),
+                          const SizedBox(height: 14),
+                          Entrance(
+                            delay: const Duration(milliseconds: 80),
+                            child: _ScanCard(onTap: _scan),
+                          ),
+                          StreamBuilder<List<Activity>>(
+                            stream: _rateable,
+                            builder: (_, s) => _RatePrompt(api: api, fares: s.data ?? const []),
+                          ),
+                          AdCarousel(api: api.messages, actions: _actions, padding: const EdgeInsets.only(top: 18)),
+                          StreamBuilder<List<Park>>(
+                            stream: _parks,
+                            builder: (_, s) => (s.data ?? const []).isEmpty
+                                ? const SizedBox.shrink()
+                                : Padding(
+                                    padding: const EdgeInsets.only(top: 28),
+                                    child: ParksStrip(parks: s.data!),
+                                  ),
+                          ),
+                          const SizedBox(height: 28),
+                          Row(
+                            children: [
+                              Text('RECENT', style: KText.kicker(p.subtle)),
+                              const Spacer(),
+                              Pressable(
+                                onTap: () => pushScreen(context, ActivityScreen(api: api)),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Text('See all', style: KText.small(p.text).copyWith(decoration: TextDecoration.underline)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + MediaQuery.paddingOf(context).bottom),
-                  sliver: SliverToBoxAdapter(
-                    child: StreamBuilder<List<Activity>>(
-                      stream: _activity,
-                      builder: (_, s) {
-                        if (s.hasError) {
-                          return _Note(icon: Icons.cloud_off_rounded, text: 'Couldn\'t load your activity. Check your connection and try again.');
-                        }
-                        if (!s.hasData) {
-                          return const Padding(
-                            padding: EdgeInsets.all(24),
-                            child: Center(child: CircularProgressIndicator(color: K.yellowDeep)),
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + MediaQuery.paddingOf(context).bottom),
+                    sliver: SliverToBoxAdapter(
+                      child: StreamBuilder<List<Activity>>(
+                        stream: _activity,
+                        builder: (_, s) {
+                          if (s.hasError) {
+                            return _Note(icon: Icons.cloud_off_rounded, text: 'Couldn\'t load your activity. Check your connection and try again.');
+                          }
+                          if (!s.hasData) {
+                            return const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Center(child: CircularProgressIndicator(color: K.yellowDeep)),
+                            );
+                          }
+                          final items = s.data!;
+                          _topUpWaiting = items.any((a) => a.kind == ActivityKind.topUp && a.pending);
+                          if (items.isEmpty) {
+                            return _Note(
+                              icon: Icons.directions_bus_rounded,
+                              text: 'No rides yet. Top up, then scan the sticker on any Konduct shuttle or bike.',
+                            );
+                          }
+                          return Column(
+                            children: [for (final a in items.take(6)) ActivityTile(a: a, onTap: () => _open(a))],
                           );
-                        }
-                        final items = s.data!;
-                        _topUpWaiting = items.any((a) => a.kind == ActivityKind.topUp && a.pending);
-                        if (items.isEmpty) {
-                          return _Note(icon: Icons.directions_bus_rounded, text: 'No rides yet. Top up, then scan the sticker on any Konduct shuttle or bike.');
-                        }
-                        return Column(
-                          children: [for (final a in items.take(6)) ActivityTile(a: a, onTap: () => _open(a))],
-                        );
-                      },
+                        },
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

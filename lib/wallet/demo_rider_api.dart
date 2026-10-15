@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../messages/messages_api.dart';
 import '../support/demo_support_api.dart';
 import '../support/support_api.dart';
 import 'models.dart';
@@ -13,7 +14,7 @@ import 'rider_api.dart';
 /// Bank accounts: any 10-digit number resolves to the rider's own name and is "approved" two
 /// seconds later, with no hold. Password `ride-the-bus-1`, PIN `2580`.
 class DemoRiderApi implements RiderApi {
-  DemoRiderApi({this.fullName = 'Adaeze Okafor', this.studentId = 'UNI/2023/04571'}) {
+  DemoRiderApi({this.fullName = 'Adaeze Okafor', this.studentId = 'UNI/2023/04571', MessagesApi? messages}) : messages = messages ?? DemoMessagesApi() {
     final earlier = DateTime.now().subtract(const Duration(minutes: 40));
     _items.add(
       Activity(
@@ -51,6 +52,9 @@ class DemoRiderApi implements RiderApi {
 
   @override
   final SupportApi support = DemoSupportApi();
+
+  @override
+  final MessagesApi messages;
 
   @override
   Future<void> changePassword({required String current, required String next}) async {
@@ -112,7 +116,11 @@ class DemoRiderApi implements RiderApi {
       throw const ApiException('bus_full', 'This bus is full on Konduct: all 7 seats are paid. If riders just got off, ask the driver to tap "New trip".');
     }
     if (passengers > left) {
-      throw ApiException('not_enough_seats', left == 1 ? 'Only 1 seat is left on this bus.' : 'Only $left seats are left on this bus.', details: {'seatsLeft': left});
+      throw ApiException(
+        'not_enough_seats',
+        left == 1 ? 'Only 1 seat is left on this bus.' : 'Only $left seats are left on this bus.',
+        details: {'seatsLeft': left},
+      );
     }
     final total = 20000 * passengers;
     final recent = _items.any((a) => a.isFare && !a.reversed && DateTime.now().difference(a.at) < const Duration(minutes: 10));

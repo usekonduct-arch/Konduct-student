@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../messages/voice.dart';
 import '../../theme/tokens.dart';
 import '../../ui/kit.dart';
 import '../models.dart';
@@ -90,7 +91,14 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    if (widget.justPaid) _pop.forward();
+    if (widget.justPaid) {
+      _pop.forward();
+      // Said out loud, so the rider (and the driver beside them) hears that it went through.
+      Voice.say(
+        'Payment successful. ${Voice.amount(widget.totalKobo)} paid${widget.passengers > 1 ? ' for ${widget.passengers} riders' : ''}.',
+        clip: 'sounds/voice_payment_success.wav',
+      );
+    }
     if (_canUndo) _tick = Timer.periodic(const Duration(seconds: 1), (_) => setState(() => _canUndo || _stopTick()));
   }
 

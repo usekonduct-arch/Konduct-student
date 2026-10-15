@@ -82,7 +82,10 @@ class _TransactionScreenState extends State<TransactionScreen> {
     try {
       final r = await api.refreshTopUps();
       if (!mounted) return;
-      showSnack(context, r.credited > 0 ? 'Payment confirmed. Your wallet is topped up.' : 'Bachs hasn\'t confirmed this payment yet. We\'ll add it the moment they do.');
+      showSnack(
+        context,
+        r.credited > 0 ? 'Payment confirmed. Your wallet is topped up.' : 'Bachs hasn\'t confirmed this payment yet. We\'ll add it the moment they do.',
+      );
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message);
     } finally {
@@ -112,8 +115,17 @@ class _TransactionScreenState extends State<TransactionScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (waiting) ...[KButton(label: 'Check payment now', icon: Icons.refresh_rounded, loading: _checking, onTap: _checkPayment), const SizedBox(height: 10)],
-                  if (url != null) KButton(label: 'Verify online', icon: Icons.verified_rounded, dark: true, onTap: () => openWeb(context, url, title: 'Receipt check')),
+                  if (waiting) ...[
+                    KButton(label: 'Check payment now', icon: Icons.refresh_rounded, loading: _checking, onTap: _checkPayment),
+                    const SizedBox(height: 10),
+                  ],
+                  if (url != null)
+                    KButton(
+                      label: 'Verify online',
+                      icon: Icons.verified_rounded,
+                      dark: true,
+                      onTap: () => openWeb(context, url, title: 'Receipt check'),
+                    ),
                   if (_reference(_a).isNotEmpty)
                     Center(
                       child: Pressable(
@@ -134,11 +146,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                         ),
                       ),
                     ),
-                  if (_a.isFare && !_a.reversed) ...[
-                    const SizedBox(height: 4),
-                    RideRatingCard(api: api, txId: _a.id),
-                    FareReportLink(api: api, txId: _a.id),
-                  ],
+                  if (_a.isFare && !_a.reversed) ...[const SizedBox(height: 4), RideRatingCard(api: api, txId: _a.id), FareReportLink(api: api, txId: _a.id)],
                 ],
               ),
             ),
@@ -212,10 +220,7 @@ Slip slipFor(Activity a, ReceiptProof? proof, String? problem) {
           if (a.offlineCode.isNotEmpty && !a.reversed) SlipLine('Offline code', a.offlineCode.split('').join(' ')),
           if (a.rating != null) SlipLine('Your rating', '${'★' * a.rating!}${'☆' * (5 - a.rating!)}'),
         ],
-        totals: [
-          SlipLine('Fare', '${a.passengers} × ${naira(each)}'),
-          if (after != null && !a.reversed) SlipLine('Wallet after', naira(after)),
-        ],
+        totals: [SlipLine('Fare', '${a.passengers} × ${naira(each)}'), if (after != null && !a.reversed) SlipLine('Wallet after', naira(after))],
         status: a.reversed ? (a.status == 'refunded' ? 'Refunded to wallet' : 'Undone, money returned') : 'Paid by wallet',
         seal: seal,
         verifyUrl: common.verifyUrl,
@@ -252,7 +257,11 @@ Slip slipFor(Activity a, ReceiptProof? proof, String? problem) {
         strikeAmount: a.reversed,
         when: common.when,
         place: common.place,
-        lines: [SlipLine('Ref', _shortId(a.id), strong: true), if (a.reference.isNotEmpty) SlipLine('To account', a.reference), const SlipLine('Processor', 'Bachs')],
+        lines: [
+          SlipLine('Ref', _shortId(a.id), strong: true),
+          if (a.reference.isNotEmpty) SlipLine('To account', a.reference),
+          const SlipLine('Processor', 'Bachs'),
+        ],
         totals: [if (after != null && !a.reversed) SlipLine('Wallet after', naira(after))],
         status: status,
         seal: seal,

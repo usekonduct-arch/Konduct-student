@@ -1,0 +1,844 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../theme/tokens.dart';
+import '../ui/kit.dart';
+import '../ui/web_screen.dart';
+import 'messages_api.dart';
+import 'voice.dart';
+
+/// In-app screens an `app:<name>` link can open (for example "topup" → the top-up screen).
+typedef AppActions = Map<String, VoidCallback>;
+
+/// Follows a message or ad link: web pages open inside the app, app: links open a screen.
+void openLink(BuildContext context, String? link, AppActions actions) {
+  if (link == null || link.isEmpty) return;
+  if (link.startsWith('https://')) {
+    openWeb(context, link);
+  } else if (link.startsWith('app:')) {
+    actions[link.substring(4)]?.call();
+  }
+}
+
+const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+String _ago(DateTime t) {
+  final d = DateTime.now().difference(t);
+  if (d.inMinutes < 1) return 'Just now';
+  if (d.inHours < 1) return '${d.inMinutes} min ago';
+  if (d.inDays < 1) return '${d.inHours} h ago';
+  if (d.inDays < 7) return '${d.inDays} d ago';
+  return '${t.day} ${_months[t.month - 1]}';
+}
+
+/// A picture from the web that never breaks the layout while loading or when it fails.
+class _NetImage extends StatelessWidget {
+  const _NetImage(this.url);
+  final String url;
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      loadingBuilder: (_, child, progress) => progress == null ? child : ColoredBox(color: p.border.withValues(alpha: 0.4)),
+      errorBuilder: (_, _, _) => ColoredBox(
+        color: p.border.withValues(alpha: 0.4),
+        child: Center(child: Icon(Icons.image_not_supported_rounded, color: p.subtle)),
+      ),
+    );
+  }
+}
+
+/// Bell with the number of unread messages. Opens the inbox.
+class NoticeBell extends StatefulWidget {
+  const NoticeBell({super.key, required this.api, required this.actions});
+  final MessagesApi api;
+  final AppActions actions;
+  @override
+  State<NoticeBell> createState() => _NoticeBellState();
+}
+
+class _NoticeBellState extends State<NoticeBell> {
+  late final _notices = widget.api.notices();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return StreamBuilder<List<Notice>>(
+      stream: _notices,
+      builder: (context, s) {
+        final unread = (s.data ?? const <Notice>[]).where((n) => !n.read).length;
+        return Semantics(
+          button: true,
+          label: unread == 0 ? 'Notifications' : 'Notifications, $unread unread',
+          excludeSemantics: true,
+          child: Pressable(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => InboxScreen(api: widget.api, actions: widget.actions),
+              ),
+            ),
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: p.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: p.border),
+                    ),
+                    child: Center(child: Icon(Icons.notifications_rounded, color: p.text, size: 22)),
+                  ),
+                  if (unread > 0)
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: Container(
+                        constraints: const BoxConstraints(minWidth: 19),
+                        height: 19,
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        decoration: BoxDecoration(
+                          color: K.coral,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: p.bg, width: 2),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(unread > 9 ? '9+' : '$unread', style: KText.small(Colors.white).copyWith(fontSize: 10.5, height: 1)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A plain page with a back button and a title, matching the app's other screens.
+class _Page extends StatelessWidget {
+  const _Page({required this.title, required this.child, this.action});
+  final String title;
+  final Widget child;
+  final Widget? action;
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: p.bg,
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
+                child: SizedBox(
+                  height: 48,
+                  child: Row(
+                    children: [
+                      Semantics(
+                        button: true,
+                        label: 'Back',
+                        child: Pressable(
+                          onTap: () => Navigator.of(context).maybePop(),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: p.surface,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: p.border),
+                            ),
+                            child: Icon(Icons.arrow_back_rounded, color: p.text, size: 22),
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      ?action,
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+                child: Text(title, style: KText.title(p.text)),
+              ),
+              Expanded(child: child),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Every message from Konduct, newest first.
+class InboxScreen extends StatefulWidget {
+  const InboxScreen({super.key, required this.api, required this.actions});
+  final MessagesApi api;
+  final AppActions actions;
+  @override
+  State<InboxScreen> createState() => _InboxScreenState();
+}
+
+class _InboxScreenState extends State<InboxScreen> {
+  late final _notices = widget.api.notices();
+  List<Notice> _last = const [];
+
+  Future<void> _readAll() async {
+    for (final n in _last.where((n) => !n.read)) {
+      await widget.api.markRead(n);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return StreamBuilder<List<Notice>>(
+      stream: _notices,
+      builder: (context, s) {
+        _last = s.data ?? const [];
+        final unread = _last.any((n) => !n.read);
+        return _Page(
+          title: 'Notifications',
+          action: unread
+              ? TextButton(
+                  onPressed: _readAll,
+                  child: Text('Mark all read', style: KText.small(p.text).copyWith(decoration: TextDecoration.underline)),
+                )
+              : null,
+          child: !s.hasData
+              ? const Center(child: CircularProgressIndicator(color: K.yellowDeep))
+              : _last.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text('Nothing yet. Messages from the Konduct team show up here.', style: KText.body(p.subtle)),
+                )
+              : ListView.separated(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.paddingOf(context).bottom),
+                  itemCount: _last.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, i) {
+                    final n = _last[i];
+                    return Pressable(
+                      scale: 0.98,
+                      onTap: () {
+                        widget.api.markRead(n);
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => NoticeScreen(notice: n, actions: widget.actions),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: p.surface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: n.read ? p.border : K.yellowDeep, width: n.read ? 1 : 1.6),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(color: K.yellow.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(13)),
+                              child: Icon(n.personal ? Icons.mark_email_unread_rounded : Icons.campaign_rounded, color: p.text, size: 21),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          n.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: KText.body(p.text).copyWith(fontWeight: n.read ? FontWeight.w600 : FontWeight.w800),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(_ago(n.at), style: KText.small(p.subtle).copyWith(fontSize: 11.5)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(n.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: KText.small(p.subtle)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        );
+      },
+    );
+  }
+}
+
+/// One message in full.
+class NoticeScreen extends StatelessWidget {
+  const NoticeScreen({super.key, required this.notice, required this.actions});
+  final Notice notice;
+  final AppActions actions;
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final n = notice;
+    return _Page(
+      title: n.title,
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + MediaQuery.paddingOf(context).bottom),
+        children: [
+          Text(_ago(n.at), style: KText.small(p.subtle)),
+          const SizedBox(height: 14),
+          if (n.imageUrl != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: AspectRatio(aspectRatio: 2, child: _NetImage(n.imageUrl!)),
+            ),
+            const SizedBox(height: 16),
+          ],
+          SelectableText(n.body, style: KText.body(p.text)),
+          if (n.link != null) ...[const SizedBox(height: 22), KButton(label: n.linkLabel ?? 'Open', onTap: () => openLink(context, n.link, actions))],
+        ],
+      ),
+    );
+  }
+}
+
+/// Banner ads (1200 × 600, 2:1) that slide by on their own. Shows nothing at all when there are
+/// no live carousel ads, so the page closes up around it.
+class AdCarousel extends StatefulWidget {
+  const AdCarousel({super.key, required this.api, required this.actions, this.padding = EdgeInsets.zero});
+  final MessagesApi api;
+  final AppActions actions;
+
+  /// Space around the carousel, applied only when it shows.
+  final EdgeInsets padding;
+
+  @override
+  State<AdCarousel> createState() => _AdCarouselState();
+}
+
+class _AdCarouselState extends State<AdCarousel> {
+  late final _ads = widget.api.ads();
+  final _pages = PageController();
+  Timer? _auto;
+  int _page = 0;
+  int _count = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _auto = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (_count < 2 || !_pages.hasClients) return;
+      _pages.animateToPage((_page + 1) % _count, duration: const Duration(milliseconds: 550), curve: K.outExpo);
+    });
+  }
+
+  @override
+  void dispose() {
+    _auto?.cancel();
+    _pages.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return StreamBuilder<List<Ad>>(
+      stream: _ads,
+      builder: (context, s) {
+        final now = DateTime.now();
+        final ads = (s.data ?? const <Ad>[]).where((a) => a.placement == AdPlacement.carousel && a.liveAt(now)).toList();
+        _count = ads.length;
+        if (ads.isEmpty) return const SizedBox.shrink();
+        if (_page >= ads.length) _page = 0;
+        return Padding(
+          padding: widget.padding,
+          child: Column(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: AspectRatio(
+                  aspectRatio: 2,
+                  child: PageView.builder(
+                    controller: _pages,
+                    itemCount: ads.length,
+                    onPageChanged: (i) => setState(() => _page = i),
+                    itemBuilder: (context, i) => _Banner(ad: ads[i], actions: widget.actions),
+                  ),
+                ),
+              ),
+              if (ads.length > 1) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (var i = 0; i < ads.length; i++)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: i == _page ? 18 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(color: i == _page ? K.yellowDeep : p.border, borderRadius: BorderRadius.circular(3)),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Banner extends StatelessWidget {
+  const _Banner({required this.ad, required this.actions});
+  final Ad ad;
+  final AppActions actions;
+  @override
+  Widget build(BuildContext context) {
+    final cta = ad.buttons.isEmpty ? null : ad.buttons.first;
+    final hasText = ad.title.isNotEmpty || cta != null;
+    return Semantics(
+      label: ad.title.isEmpty ? 'Advert' : 'Advert: ${ad.title}',
+      button: ad.link.isNotEmpty,
+      child: GestureDetector(
+        onTap: ad.link.isEmpty ? null : () => openLink(context, ad.link, actions),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _NetImage(ad.imageUrl),
+            if (hasText)
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0xAA000000)],
+                    stops: [0.45, 1],
+                  ),
+                ),
+              ),
+            if (hasText)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 14,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        ad.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: KText.h3(Colors.white).copyWith(fontSize: 18, shadows: const [Shadow(blurRadius: 8, color: Colors.black54)]),
+                      ),
+                    ),
+                    if (cta != null) ...[
+                      const SizedBox(width: 10),
+                      Pressable(
+                        onTap: () => openLink(context, cta.link, actions),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(color: K.yellow, borderRadius: BorderRadius.circular(18)),
+                          child: Text(cta.label, style: KText.small(K.ink).copyWith(fontWeight: FontWeight.w800)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Wraps a home screen: opens popup messages and popup ads (once each), shows a banner when a
+/// push arrives while the app is open, and follows pushes the person tapped.
+class MessagesHost extends StatefulWidget {
+  const MessagesHost({super.key, required this.api, required this.actions, required this.child, this.quietKinds = const {}});
+  final MessagesApi api;
+  final AppActions actions;
+  final Widget child;
+
+  /// Push kinds the app already announces itself (the driver's fare alert), so no banner.
+  final Set<String> quietKinds;
+
+  @override
+  State<MessagesHost> createState() => _MessagesHostState();
+}
+
+class _MessagesHostState extends State<MessagesHost> {
+  final _subs = <StreamSubscription<Object?>>[];
+  List<Notice> _notices = const [];
+  List<Ad> _ads = const [];
+  Timer? _tick;
+  bool _showing = false;
+  OverlayEntry? _banner;
+  Timer? _bannerTimer;
+
+  MessagesApi get api => widget.api;
+
+  @override
+  void initState() {
+    super.initState();
+    api.seen.ready().then((_) {
+      if (!mounted) return;
+      _subs
+        ..add(api.notices().listen((n) => _notices = n, onError: (_) {}))
+        ..add(api.ads().listen((a) => _ads = a, onError: (_) {}))
+        ..add(api.pushes().listen(_onPush));
+      // Look for something to pop up once the home screen has settled, and again now and then
+      // (a popup waits while another screen is open).
+      _tick = Timer.periodic(const Duration(seconds: 2), (_) => _maybePopup());
+    });
+    api.startPush();
+  }
+
+  @override
+  void dispose() {
+    for (final s in _subs) {
+      s.cancel();
+    }
+    _tick?.cancel();
+    _bannerTimer?.cancel();
+    _banner?.remove();
+    super.dispose();
+  }
+
+  bool get _inFront => mounted && (ModalRoute.of(context)?.isCurrent ?? true);
+
+  Future<void> _maybePopup() async {
+    if (_showing || !_inFront) return;
+    final notice = _notices.where((n) => n.popup && !n.read && !api.seen.has('pop:${n.key}')).firstOrNull;
+    final now = DateTime.now();
+    final ad = notice != null ? null : _ads.where((a) => a.placement == AdPlacement.popup && a.liveAt(now) && !api.seen.has('ad:${a.id}')).firstOrNull;
+    if (notice == null && ad == null) return;
+    _showing = true;
+    HapticFeedback.lightImpact();
+    try {
+      if (notice != null) {
+        await api.seen.add('pop:${notice.key}');
+        await api.markRead(notice);
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (_) => _NoticePopup(notice: notice, actions: widget.actions),
+        );
+      } else {
+        await api.seen.add('ad:${ad!.id}');
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (_) => _AdPopup(ad: ad, actions: widget.actions),
+        );
+      }
+    } finally {
+      _showing = false;
+    }
+  }
+
+  void _onPush(PushEvent e) {
+    if (!mounted) return;
+    if (e.tapped) {
+      // Opened from the notification shade: go where it points, else to the inbox.
+      if (e.link != null) {
+        openLink(context, e.link, widget.actions);
+      } else if (!widget.quietKinds.contains(e.kind)) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => InboxScreen(api: api, actions: widget.actions),
+          ),
+        );
+      }
+      return;
+    }
+    // In front: popups open by themselves from the inbox; everything else gets a banner.
+    // Money alerts are always spoken (Voice): there is no system notification sound in front.
+    Voice.announce(e.kind, e.data);
+    if (e.popup || widget.quietKinds.contains(e.kind) || e.title.isEmpty) return;
+    _showBanner(e);
+  }
+
+  void _showBanner(PushEvent e) {
+    _bannerTimer?.cancel();
+    _banner?.remove();
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) return;
+    late final OverlayEntry entry;
+    void close() {
+      if (_banner == entry) {
+        entry.remove();
+        _banner = null;
+      }
+    }
+
+    entry = OverlayEntry(
+      builder: (context) => _PushBanner(
+        event: e,
+        onTap: () {
+          close();
+          if (e.link != null) {
+            openLink(this.context, e.link, widget.actions);
+          } else {
+            Navigator.of(this.context).push(
+              MaterialPageRoute(
+                builder: (_) => InboxScreen(api: api, actions: widget.actions),
+              ),
+            );
+          }
+        },
+        onDismiss: close,
+      ),
+    );
+    _banner = entry;
+    overlay.insert(entry);
+    HapticFeedback.mediumImpact();
+    _bannerTimer = Timer(const Duration(seconds: 6), close);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+class _PushBanner extends StatelessWidget {
+  const _PushBanner({required this.event, required this.onTap, required this.onDismiss});
+  final PushEvent event;
+  final VoidCallback onTap, onDismiss;
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 12,
+      right: 12,
+      top: MediaQuery.paddingOf(context).top + 8,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 420),
+        curve: K.outExpo,
+        builder: (_, v, child) => Transform.translate(
+          offset: Offset(0, -80 * (1 - v)),
+          child: Opacity(opacity: v, child: child),
+        ),
+        child: Dismissible(
+          key: const ValueKey('push-banner'),
+          direction: DismissDirection.up,
+          onDismissed: (_) => onDismiss(),
+          child: Material(
+            color: Colors.transparent,
+            child: GestureDetector(
+              onTap: onTap,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                decoration: BoxDecoration(
+                  color: K.ink,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF2A313C)),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 10))],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(color: K.yellow, borderRadius: BorderRadius.circular(12)),
+                      child: const Icon(Icons.notifications_active_rounded, color: K.ink, size: 21),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            event.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: KText.body(K.paper).copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          if (event.body.isNotEmpty) Text(event.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: KText.small(K.muteDark)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CloseButton extends StatelessWidget {
+  const _CloseButton({this.onImage = false});
+  final bool onImage;
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Close',
+    child: Pressable(
+      onTap: () => Navigator.of(context).pop(),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(color: onImage ? Colors.black.withValues(alpha: 0.45) : Palette.of(context).border, shape: BoxShape.circle),
+        child: Icon(Icons.close_rounded, color: onImage ? Colors.white : Palette.of(context).text, size: 20),
+      ),
+    ),
+  );
+}
+
+class _NoticePopup extends StatelessWidget {
+  const _NoticePopup({required this.notice, required this.actions});
+  final Notice notice;
+  final AppActions actions;
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final n = notice;
+    return Dialog(
+      backgroundColor: p.bg,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 40),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (n.imageUrl != null)
+              Stack(
+                children: [
+                  AspectRatio(aspectRatio: 2, child: _NetImage(n.imageUrl!)),
+                  const Positioned(right: 10, top: 10, child: _CloseButton(onImage: true)),
+                ],
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: Text(n.title, style: KText.h3(p.text))),
+                      if (n.imageUrl == null) const _CloseButton(),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(n.body, style: KText.body(p.subtle)),
+                  const SizedBox(height: 20),
+                  if (n.link != null) ...[
+                    KButton(
+                      label: n.linkLabel ?? 'Open',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        openLink(context, n.link, actions);
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(n.link == null ? 'OK' : 'Not now', style: KText.body(p.text).copyWith(fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A popup ad: a 4:5 picture (1080 × 1350) with an optional title, text and up to two buttons.
+class _AdPopup extends StatelessWidget {
+  const _AdPopup({required this.ad, required this.actions});
+  final Ad ad;
+  final AppActions actions;
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    void go(String link) {
+      Navigator.of(context).pop();
+      openLink(context, link, actions);
+    }
+
+    final hasText = ad.title.isNotEmpty || ad.body.isNotEmpty || ad.buttons.isNotEmpty;
+    return Dialog(
+      backgroundColor: p.bg,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.86),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Stack(
+                children: [
+                  GestureDetector(
+                    onTap: ad.link.isEmpty ? null : () => go(ad.link),
+                    child: AspectRatio(aspectRatio: 4 / 5, child: _NetImage(ad.imageUrl)),
+                  ),
+                  const Positioned(right: 10, top: 10, child: _CloseButton(onImage: true)),
+                  Positioned(
+                    left: 12,
+                    top: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(6)),
+                      child: Text('AD', style: KText.kicker(Colors.white).copyWith(fontSize: 10)),
+                    ),
+                  ),
+                ],
+              ),
+              if (hasText)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (ad.title.isNotEmpty) Text(ad.title, style: KText.h3(p.text)),
+                      if (ad.body.isNotEmpty) ...[const SizedBox(height: 6), Text(ad.body, style: KText.body(p.subtle))],
+                      for (final (i, b) in ad.buttons.indexed) ...[
+                        SizedBox(height: i == 0 ? 16 : 8),
+                        KButton(label: b.label, dark: i > 0, onTap: () => go(b.link)),
+                      ],
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

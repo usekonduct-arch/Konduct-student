@@ -5,6 +5,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../app/app_info.dart';
+import '../messages/firebase_messages_api.dart';
+import '../messages/messages_api.dart';
 import '../support/firebase_support_api.dart';
 import '../support/support_api.dart';
 import 'models.dart';
@@ -23,6 +25,9 @@ class FirebaseRiderApi implements RiderApi {
 
   @override
   final SupportApi support = FirebaseSupportApi();
+
+  @override
+  final MessagesApi messages = FirebaseMessagesApi();
 
   @override
   Future<void> changePassword({required String current, required String next}) async {
@@ -158,11 +163,8 @@ class FirebaseRiderApi implements RiderApi {
   Stream<bool> paymentsPaused() => _db.doc('config/switches').snapshots().map((s) => s.data()?['paymentsPaused'] == true).handleError((_) {});
 
   @override
-  Stream<List<Park>> parks() => _db
-      .collection('parks')
-      .where('active', isEqualTo: true)
-      .snapshots()
-      .map((q) => q.docs.map(_park).toList()..sort((a, b) => a.name.compareTo(b.name)));
+  Stream<List<Park>> parks() =>
+      _db.collection('parks').where('active', isEqualTo: true).snapshots().map((q) => q.docs.map(_park).toList()..sort((a, b) => a.name.compareTo(b.name)));
 
   Park _park(QueryDocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data();
