@@ -5,6 +5,7 @@ import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'receipt_screen.dart';
+import '../../support/support_screens.dart';
 
 /// Every fare and top-up, newest first.
 class ActivityScreen extends StatefulWidget {
@@ -22,6 +23,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
   Widget build(BuildContext context) {
     final p = Palette.of(context);
     return PageFrame(
+      trailing: SupportButton(api: widget.api.support),
       kicker: 'Activity',
       title: 'Your rides and top-ups',
       child: StreamBuilder<List<Activity>>(

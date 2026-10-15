@@ -294,4 +294,48 @@ void main() {
     expect(find.text('Shasha park'), findsOneWidget);
     await done(t);
   });
+
+  testWidgets('a student changes their password from settings', (t) async {
+    await openHome(t);
+    await t.tap(find.bySemanticsLabel('Account'));
+    await settle(t, 900);
+    await t.scrollUntilVisible(find.text('Change password'), 200, scrollable: find.byType(Scrollable).first);
+    await t.tap(find.text('Change password'));
+    await settle(t, 900);
+    final fields = find.byType(TextField);
+    await t.enterText(fields.at(0), 'not-my-password');
+    await t.enterText(fields.at(1), 'brand-new-pass-7');
+    await t.enterText(fields.at(2), 'brand-new-pass-7');
+    await t.tap(find.text('Change password').last);
+    await settle(t, 1200);
+    expect(find.textContaining("That password isn't right"), findsOneWidget);
+    await t.enterText(fields.at(0), 'ride-the-bus-1');
+    await t.tap(find.text('Change password').last);
+    await settle(t, 1200);
+    expect(find.text('Password changed. Use the new one next time you sign in.'), findsOneWidget);
+    await done(t);
+  });
+
+  testWidgets('a student messages support and sees the staff reply', (t) async {
+    await openHome(t);
+    await t.tap(find.bySemanticsLabel('Help and support'));
+    await settle(t, 900);
+    expect(find.text('Help & support'), findsOneWidget);
+    await t.tap(find.text('New message'));
+    await settle(t, 900);
+    await t.tap(find.text('A complaint'));
+    await t.enterText(find.byType(TextField), 'The driver of OS 482 KJA was rude.');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await settle(t, 300);
+    await t.tap(find.text('Send'));
+    await settle(t, 1200);
+    expect(find.text('The driver of OS 482 KJA was rude.'), findsOneWidget);
+    await settle(t, 2500);
+    expect(find.text('Konduct support · Bisi'), findsOneWidget);
+    await t.enterText(find.byType(TextField), 'Thank you');
+    await t.tap(find.bySemanticsLabel('Send message'));
+    await settle(t, 900);
+    expect(find.text('Thank you'), findsOneWidget);
+    await done(t);
+  });
 }

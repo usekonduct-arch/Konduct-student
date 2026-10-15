@@ -7,6 +7,7 @@ import '../../ui/kit.dart';
 import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
+import '../../support/support_screens.dart';
 
 const _minKobo = 20000; // ₦200, as the backend's RULES.minTopUpKobo
 const _maxKobo = 5000000; // ₦50,000
@@ -79,6 +80,7 @@ class _TopUpScreenState extends State<TopUpScreen> {
     final tooLow = _kobo > 0 && _kobo < _minKobo;
     final tooHigh = _kobo > _maxKobo;
     return PageFrame(
+      trailing: SupportButton(api: widget.api.support),
       kicker: 'Top up',
       title: 'How much?',
       scroll: false,

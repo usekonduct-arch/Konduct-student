@@ -8,6 +8,7 @@ import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'bank_account_screen.dart';
+import '../../support/support_screens.dart';
 
 /// Send money from the wallet to the rider's approved bank account. Konduct pays the bank fee.
 class WithdrawScreen extends StatefulWidget {
@@ -71,6 +72,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
           final tooHigh = _kobo > balance;
           final ok = to != null && _kobo >= minWithdrawKobo && !tooHigh;
           return PageFrame(
+            trailing: SupportButton(api: widget.api.support),
             kicker: 'Withdraw',
             title: 'How much?',
             scroll: false,

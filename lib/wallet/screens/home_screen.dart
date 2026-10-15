@@ -18,6 +18,7 @@ import 'scan_screen.dart';
 import 'settings_screen.dart';
 import 'top_up_screen.dart';
 import 'withdraw_screen.dart';
+import '../../support/support_screens.dart';
 
 /// The rider's home: balance, top up, scan to pay, recent activity.
 class HomeScreen extends StatefulWidget {
@@ -81,6 +82,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           if (api.isDemo) const Padding(padding: EdgeInsets.only(right: 10), child: DemoBadge()),
+                          SupportButton(api: api.support),
+                          const SizedBox(width: 8),
                           RoundIconButton(
                             icon: Icons.person_rounded,
                             tooltip: 'Account',

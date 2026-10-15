@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../support/demo_support_api.dart';
+import '../support/support_api.dart';
 import 'models.dart';
 import 'rider_api.dart';
 
@@ -46,6 +48,18 @@ class DemoRiderApi implements RiderApi {
 
   @override
   bool get isDemo => true;
+
+  @override
+  final SupportApi support = DemoSupportApi();
+
+  @override
+  Future<void> changePassword({required String current, required String next}) async {
+    await _lag();
+    if (current != 'ride-the-bus-1') throw const ApiException('wrong_password', "That password isn't right. (Demo: ride-the-bus-1)");
+  }
+
+  @override
+  Future<void> sendPasswordReset() => _lag(500);
 
   Future<void> _lag([int ms = 700]) => Future.delayed(Duration(milliseconds: ms));
   void _touch() => _changed.add(null);

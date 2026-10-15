@@ -5,6 +5,7 @@ import '../../ui/field.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
 import '../auth_repository.dart';
+import '../password_ui.dart';
 
 enum EmailMode { signIn, signUp }
 
@@ -94,17 +95,7 @@ class _EmailScreenState extends State<EmailScreen> {
     _shake.currentState?.shake();
   }
 
-  Future<void> _forgot() async {
-    if (!looksLikeEmail(_email.text)) return _fail('Type your email above first, then tap “Forgot password?”.', email: true);
-    try {
-      await widget.onForgot(_email.text.trim().toLowerCase());
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('If that email has an account, a reset link is on its way.')));
-      }
-    } on AuthException catch (e) {
-      if (mounted) _fail(e.message);
-    }
-  }
+  Future<void> _forgot() => showForgotPassword(context, initialEmail: _email.text, send: widget.onForgot);
 
   @override
   Widget build(BuildContext context) {

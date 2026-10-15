@@ -9,6 +9,7 @@ import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'rate_sheet.dart';
+import '../../support/support_screens.dart';
 
 /// A fare receipt. Straight after paying it celebrates and offers a 60-second undo; from the
 /// activity list it's the record, with "Report a problem".
@@ -181,6 +182,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
           )
         : null;
     return PageFrame(
+      trailing: SupportButton(api: widget.api.support, txId: widget.txId),
       kicker: widget.justPaid ? 'Paid' : 'Receipt',
       title: reversed ? (_status == 'refunded' ? 'Refunded.' : 'Payment undone.') : (widget.justPaid ? 'You\'re good to go.' : naira(widget.totalKobo)),
       bottom: undo == null && !widget.justPaid

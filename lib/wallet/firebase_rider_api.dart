@@ -5,6 +5,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../app/app_info.dart';
+import '../support/firebase_support_api.dart';
+import '../support/support_api.dart';
 import 'models.dart';
 import 'rider_api.dart';
 
@@ -18,6 +20,38 @@ class FirebaseRiderApi implements RiderApi {
 
   @override
   bool get isDemo => false;
+
+  @override
+  final SupportApi support = FirebaseSupportApi();
+
+  @override
+  Future<void> changePassword({required String current, required String next}) async {
+    await reauthenticate(current);
+    try {
+      await FirebaseAuth.instance.currentUser!.updatePassword(next);
+    } on FirebaseAuthException catch (e) {
+      throw ApiException('password_change', switch (e.code) {
+        'weak-password' => 'Choose a stronger password: at least 8 characters that are hard to guess.',
+        'requires-recent-login' => 'For your safety, sign out, sign in again, then change your password.',
+        'too-many-requests' => 'Too many tries. Wait a few minutes, then try again.',
+        'network-request-failed' => 'No connection. Check your data and try again.',
+        _ => e.message ?? "Couldn't change your password. Try again.",
+      });
+    }
+  }
+
+  @override
+  Future<void> sendPasswordReset() async {
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: FirebaseAuth.instance.currentUser!.email!);
+    } on FirebaseAuthException catch (e) {
+      throw ApiException('reset_failed', switch (e.code) {
+        'too-many-requests' => 'Too many tries. Wait a few minutes, then try again.',
+        'network-request-failed' => 'No connection. Check your data and try again.',
+        _ => "Couldn't send the reset link. Try again.",
+      });
+    }
+  }
 
   @override
   Stream<RiderProfile?> profile() => _db.doc('users/$_uid').snapshots().map((s) {

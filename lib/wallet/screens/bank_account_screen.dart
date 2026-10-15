@@ -7,6 +7,7 @@ import '../../ui/kit.dart';
 import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
+import '../../support/support_screens.dart';
 
 /// Where withdrawals go. Adding or changing an account needs the password and PIN; a Konduct
 /// staff member checks the bank's name for the account matches the rider before it's used.
@@ -38,6 +39,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
       builder: (context, s) {
         final a = s.data;
         return PageFrame(
+          trailing: SupportButton(api: widget.api.support),
           kicker: 'Withdrawals',
           title: 'Your bank account',
           bottom: a == null || a.pending != null

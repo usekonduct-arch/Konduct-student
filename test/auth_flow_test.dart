@@ -7,6 +7,7 @@ import 'package:konduct_student/app/bootstrap.dart';
 import 'package:konduct_student/auth/auth_controller.dart';
 import 'package:konduct_student/auth/auth_repository.dart';
 import 'package:konduct_student/auth/demo_auth_repository.dart';
+import 'package:konduct_student/auth/password_ui.dart';
 import 'package:konduct_student/auth/screens/pin_screen.dart';
 import 'package:konduct_student/ui/kit.dart';
 import 'package:konduct_student/wallet/demo_rider_api.dart';
@@ -185,5 +186,39 @@ void main() {
 
     await t.pumpWidget(const SizedBox());
     await settle(t, 1500);
+  });
+
+  testWidgets('forgot password: the sheet sends a reset link and explains what happens next', (t) async {
+    phoneSize(t);
+    await t.pumpWidget(KonductApp(auth: AuthController(DemoAuthRepository()), api: DemoRiderApi()));
+    await settle(t, 2600);
+    await t.tap(find.text('Get started'));
+    await settle(t);
+    await t.tap(find.text('Sign in').first);
+    await settle(t, 600);
+    await t.enterText(find.byType(TextField).at(0), 'ada@uniosun.edu.ng');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await settle(t, 400);
+    await t.tap(find.text('Forgot password?'));
+    await settle(t, 900);
+    expect(find.text('Reset your password'), findsOneWidget);
+    await t.tap(find.text('Send reset link'));
+    await settle(t, 1200);
+    expect(find.text('Check your email'), findsOneWidget);
+    expect(find.textContaining('If ada@uniosun.edu.ng has a Konduct account'), findsOneWidget);
+    expect(find.textContaining('Send again in'), findsOneWidget); // no hammering the button
+    await t.tap(find.text('Back to sign in'));
+    await settle(t, 900);
+    expect(find.text('Check your email'), findsNothing);
+    await t.pumpWidget(const SizedBox());
+    await settle(t, 1500);
+  });
+
+  test('new passwords are checked before anything is sent', () {
+    expect(newPasswordProblem(current: 'old-pass-1', next: 'short', again: 'short'), contains('8'));
+    expect(newPasswordProblem(current: 'old-pass-1', next: 'old-pass-1', again: 'old-pass-1'), contains('different'));
+    expect(newPasswordProblem(current: 'old-pass-1', next: 'aaaaaaaa', again: 'aaaaaaaa'), contains('easy'));
+    expect(newPasswordProblem(current: 'old-pass-1', next: 'new-pass-22', again: 'new-pass-2'), contains('match'));
+    expect(newPasswordProblem(current: 'old-pass-1', next: 'new-pass-22', again: 'new-pass-22'), isNull);
   });
 }

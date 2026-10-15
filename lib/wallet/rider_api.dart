@@ -1,11 +1,21 @@
 import 'dart:math';
 
+import '../support/support_api.dart';
 import 'models.dart';
 
 /// Everything the wallet screens read and do. Reads are live Firestore streams the security rules
 /// limit to this rider; every change goes through a backend callable (the app never writes money).
 abstract class RiderApi {
   bool get isDemo;
+
+  /// Chat with Konduct staff.
+  SupportApi get support;
+
+  /// Changes the sign-in password after confirming the current one.
+  Future<void> changePassword({required String current, required String next});
+
+  /// Emails a password reset link to the signed-in address.
+  Future<void> sendPasswordReset();
 
   Stream<RiderProfile?> profile();
 

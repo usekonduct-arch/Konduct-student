@@ -12,6 +12,7 @@ import '../wallet_ui.dart';
 import 'receipt_screen.dart';
 import 'scan_screen.dart';
 import 'top_up_screen.dart';
+import '../../support/support_screens.dart';
 
 /// Shows who the rider is about to pay (driver, plate, route, total) before any money moves.
 /// The quote is the server's price; it lasts two minutes and pays once.
@@ -161,6 +162,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     final left = _q.expiresAt.difference(DateTime.now());
     final bike = _q.vehicleType.toLowerCase().contains('bike');
     return PageFrame(
+      trailing: SupportButton(api: api.support),
       kicker: 'Check before you pay',
       title: 'Pay ${_q.driverFirstName}?',
       bottom: _bottom(),
