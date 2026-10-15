@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
+import '../../l10n/text.dart';
+import '../../security/biometric.dart';
 import '../../theme/tokens.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
@@ -38,7 +40,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
   }
 
   Future<void> _go(BankAccount to) async {
-    final pin = await askPin(context, title: 'Enter your PIN', message: 'To send ${naira(_kobo)} to ****${to.last4}.');
+    final pin = await askPin(context, title: 'Enter your PIN', message: 'To send ${naira(_kobo)} to ****${to.last4}.', biometric: true);
     if (pin == null || !mounted) return;
     setState(() {
       _busy = true;
@@ -51,7 +53,8 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
       Navigator.of(context).pop();
       showSnack(context, '${naira(_kobo)} is on its way to ****${to.last4}. Banks usually take a few minutes.');
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      final stale = await BiometricPin.instance.rejected(e.reason);
+      if (mounted) setState(() => _error = stale ? "Your saved PIN didn't work, so fingerprint payments are off. Try again and type your PIN." : e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

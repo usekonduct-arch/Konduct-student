@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app/app_info.dart';
+import '../l10n/l10n.dart';
 import 'messages_api.dart';
 
 class FirebaseMessagesApi extends MessagesApi {
@@ -160,19 +161,32 @@ class FirebaseMessagesApi extends MessagesApi {
     data: m.data,
   );
 
+  HttpsCallable _callable(String name) {
+    final functions = FirebaseFunctions.instanceFor(region: AppConfig.functionsRegion);
+    return AppConfig.backendUrl.isEmpty ? functions.httpsCallable(name) : functions.httpsCallableFromUrl('${AppConfig.backendUrl}/$name');
+  }
+
   Future<void> _register(String token) async {
     try {
-      final functions = FirebaseFunctions.instanceFor(region: AppConfig.functionsRegion);
-      final callable = AppConfig.backendUrl.isEmpty
-          ? functions.httpsCallable('registerDevice')
-          : functions.httpsCallableFromUrl('${AppConfig.backendUrl}/registerDevice');
-      await callable.call<Object?>({
+      await _callable('registerDevice').call<Object?>({
         'deviceId': await _deviceId(),
         'fcmToken': token,
         'platform': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
+        'lang': L10n.instance.lang.code,
       });
     } catch (e) {
       debugPrint('registerDevice failed: $e');
+    }
+  }
+
+  @override
+  Future<void> setLanguage(String code) async {
+    if (FirebaseAuth.instance.currentUser == null) return;
+    try {
+      await _callable('setLanguage').call<Object?>({'lang': code});
+    } catch (e) {
+      // The next registerDevice sends it again.
+      debugPrint('setLanguage failed: $e');
     }
   }
 

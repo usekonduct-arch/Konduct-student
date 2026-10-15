@@ -1,8 +1,13 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n.dart';
+import '../../app/current.dart';
+import '../../app/home_widget_sync.dart';
+import '../../app/intents.dart';
+import '../../l10n/text.dart';
 import '../../auth/auth_repository.dart';
 import '../../theme/tokens.dart';
 import '../../ui/flow_scaffold.dart';
@@ -13,6 +18,7 @@ import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'activity_screen.dart';
 import 'buses_screen.dart';
+import 'invite_screen.dart';
 import 'rate_sheet.dart';
 import 'scan_screen.dart';
 import 'settings_screen.dart';
@@ -44,6 +50,9 @@ class _HomeScreenState extends State<HomeScreen> {
   late final AppLifecycleListener _lifecycle;
   Future<bool> _wrappedReady = Future.value(false);
   bool _hidden = false;
+  int? _widgetBalance;
+  // A third listener, for the usual fare behind the low-balance note.
+  late Stream<List<Activity>> _fares;
   // A top-up is still waiting for Bachs; checked again whenever the app comes back.
   bool _topUpWaiting = false;
 
@@ -52,7 +61,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    Current.uid = widget.session.uid;
     _listen();
+    // Shortcuts, links and widget taps wait here until the wallet is open.
+    AppIntents.instance.pending.addListener(_openPending);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openPending());
     // The first week of a month: last month's Wrapped, if there were rides to wrap.
     final now = DateTime.now();
     if (now.day <= 7) _wrappedReady = api.faresIn(DateTime(now.year, now.month - 1)).then((f) => f.isNotEmpty, onError: (_) => false);
@@ -61,8 +74,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    AppIntents.instance.pending.removeListener(_openPending);
     _lifecycle.dispose();
+    Current.uid = '';
+    HomeWidgetSync.update();
     super.dispose();
+  }
+
+  void _openPending() {
+    final link = AppIntents.instance.pending.value;
+    if (link == null || !mounted) return;
+    AppIntents.instance.pending.value = null;
+    // Start from the wallet, so back always comes home.
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    openLink(context, link, _actions);
   }
 
   /// Fresh subscriptions to everything on the page. Resubscribing also revives a listener the
@@ -74,6 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _parks = api.parks();
     _buses = api.buses();
     _rateable = api.activity(limit: 10);
+    _fares = api.activity(limit: 20);
   }
 
   Future<void> _refresh({bool quiet = false}) async {
@@ -86,13 +112,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void _withdraw() => pushScreen(context, WithdrawScreen(api: api));
   void _open(Activity a) => openActivity(context, api, a);
 
-  /// Screens an ad or message can open with an app: link.
+  /// Screens an ad, message, link, shortcut or widget can open with an app: link.
   late final AppActions _actions = {
-    'topup': _topUp,
-    'scan': _scan,
-    'withdraw': _withdraw,
-    'activity': () => pushScreen(context, ActivityScreen(api: api)),
-    'account': () => pushScreen(context, SettingsScreen(api: api, session: widget.session, onSignOut: widget.onSignOut)),
+    'topup': (_) => _topUp(),
+    'scan': (_) => _scan(),
+    'pay': (code) => pushScreen(context, ScanScreen(api: api, code: code.isEmpty ? null : code)),
+    'withdraw': (_) => _withdraw(),
+    'buses': (park) => pushScreen(context, BusesScreen(api: api, parkId: park.isEmpty ? null : park)),
+    'invite': (_) => pushScreen(context, InviteScreen(api: api)),
+    'activity': (_) => pushScreen(context, ActivityScreen(api: api)),
+    'account': (_) => pushScreen(context, SettingsScreen(api: api, session: widget.session, onSignOut: widget.onSignOut)),
   };
 
   @override
@@ -160,13 +189,28 @@ class _HomeScreenState extends State<HomeScreen> {
                           Entrance(
                             child: StreamBuilder<int?>(
                               stream: _balance,
-                              builder: (_, s) => _BalanceCard(
-                                kobo: s.data,
-                                hidden: _hidden,
-                                onToggle: () => setState(() => _hidden = !_hidden),
-                                onTopUp: _topUp,
-                                onWithdraw: _withdraw,
-                              ),
+                              builder: (_, s) {
+                                if (s.data != null && s.data != _widgetBalance) {
+                                  _widgetBalance = s.data;
+                                  HomeWidgetSync.update(balanceText: naira(s.data!));
+                                }
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    _BalanceCard(
+                                      kobo: s.data,
+                                      hidden: _hidden,
+                                      onToggle: () => setState(() => _hidden = !_hidden),
+                                      onTopUp: _topUp,
+                                      onWithdraw: _withdraw,
+                                    ),
+                                    StreamBuilder<List<Activity>>(
+                                      stream: _fares,
+                                      builder: (_, f) => _LowBalance(balance: s.data, fares: f.data ?? const [], onTopUp: _topUp),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -297,7 +341,7 @@ class _BalanceCard extends StatelessWidget {
                     hidden ? Icons.visibility_off_rounded : Icons.visibility_rounded,
                     color: K.muteDark,
                     size: 20,
-                    semanticLabel: hidden ? 'Show balance' : 'Hide balance',
+                    semanticLabel: tr(hidden ? 'Show balance' : 'Hide balance'),
                   ),
                 ),
               ),
@@ -531,5 +575,63 @@ Future<void> refreshWallet(BuildContext context, RiderApi api, {bool quiet = fal
     }
   } on ApiException catch (e) {
     if (!quiet && context.mounted) showSnack(context, e.message);
+  }
+}
+
+/// "Low balance": shown when the wallet can't cover the rider's usual fare (the middle of their
+/// recent fares, per rider), so they top up before they're at the bus door.
+class _LowBalance extends StatelessWidget {
+  const _LowBalance({required this.balance, required this.fares, required this.onTopUp});
+  final int? balance;
+  final List<Activity> fares;
+  final VoidCallback onTopUp;
+
+  /// The usual fare for one rider, or null with no rides yet.
+  static int? usualFare(List<Activity> items) {
+    final each = [for (final a in items) if (a.isFare && a.status == 'completed' && a.passengers > 0) a.amountKobo ~/ a.passengers]..sort();
+    return each.isEmpty ? null : each[each.length ~/ 2];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fare = usualFare(fares);
+    final low = balance != null && fare != null && balance! < fare;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      child: !low
+          ? const SizedBox(width: double.infinity)
+          : Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Semantics(
+                liveRegion: true,
+                child: Pressable(
+                  scale: 0.98,
+                  onTap: onTopUp,
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: K.coral.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: K.coral.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.battery_alert_rounded, color: K.coral),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Low balance: ${naira(balance!)} left, and your ride is usually ${naira(fare)}. Top up before your next trip.',
+                            style: KText.small(K.ink),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.arrow_forward_rounded, color: K.ink, size: 20),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+    );
   }
 }

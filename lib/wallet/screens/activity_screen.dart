@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
+import '../../l10n/l10n.dart';
+import '../../l10n/text.dart';
 import '../../theme/tokens.dart';
 import '../models.dart';
 import '../rider_api.dart';
@@ -84,6 +86,6 @@ class _ActivityScreenState extends State<ActivityScreen> {
     final d = DateTime(t.year, t.month, t.day);
     if (d == today) return 'Today';
     if (d == today.subtract(const Duration(days: 1))) return 'Yesterday';
-    return '${t.day} ${_months[t.month - 1]}${t.year == n.year ? '' : ' ${t.year}'}';
+    return '${t.day} ${tr(_months[t.month - 1])}${t.year == n.year ? '' : ' ${t.year}'}';
   }
 }

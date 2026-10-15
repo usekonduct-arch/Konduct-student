@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/l10n.dart';
 import '../theme/tokens.dart';
 
 /// The Konduct text field: icon tile that lights up on focus, floating label, yellow focus ring,
@@ -101,8 +102,8 @@ class _KFieldState extends State<KField> {
               autocorrect: false,
               style: widget.mono ? KText.mono(p.text, size: 17) : KText.body(p.text).copyWith(fontSize: 17, fontWeight: FontWeight.w700),
               decoration: InputDecoration(
-                labelText: widget.label,
-                hintText: widget.hint,
+                labelText: tr(widget.label),
+                hintText: widget.hint == null ? null : tr(widget.hint!),
                 labelStyle: KText.small(p.subtle),
                 floatingLabelStyle: KText.small(p.subtle),
                 hintStyle: KText.body(p.subtle.withValues(alpha: 0.5)),
@@ -113,7 +114,7 @@ class _KFieldState extends State<KField> {
           ),
           if (widget.obscure)
             IconButton(
-              tooltip: _hidden ? 'Show password' : 'Hide password',
+              tooltip: tr(_hidden ? 'Show password' : 'Hide password'),
               onPressed: () => setState(() => _hidden = !_hidden),
               icon: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),

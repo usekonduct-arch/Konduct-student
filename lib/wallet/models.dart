@@ -420,3 +420,44 @@ class FareRoute {
   final List<String> stops;
   final int fareKobo;
 }
+
+/// riderReferral's answer: the invite card.
+class ReferralInfo {
+  const ReferralInfo({
+    required this.code,
+    required this.enabled,
+    required this.bonusKobo,
+    required this.welcomeKobo,
+    required this.joined,
+    required this.rewarded,
+    required this.earnedKobo,
+    required this.usedCode,
+    required this.canApply,
+  });
+
+  final String code;
+
+  /// Rewards are being paid right now (an admin switches them on).
+  final bool enabled;
+
+  /// What this rider gets per friend, and what the friend gets, after the friend's first ride.
+  final int bonusKobo, welcomeKobo;
+
+  /// Friends who entered this code, and those whose first ride has paid out.
+  final int joined, rewarded, earnedKobo;
+
+  /// This rider already entered a friend's code; or can still enter one (new riders, before their first ride).
+  final bool usedCode, canApply;
+
+  factory ReferralInfo.fromMap(Map<String, dynamic> m) => ReferralInfo(
+    code: m['code'] as String? ?? '',
+    enabled: m['enabled'] == true,
+    bonusKobo: (m['bonusKobo'] as num?)?.toInt() ?? 0,
+    welcomeKobo: (m['welcomeKobo'] as num?)?.toInt() ?? 0,
+    joined: (m['joined'] as num?)?.toInt() ?? 0,
+    rewarded: (m['rewarded'] as num?)?.toInt() ?? 0,
+    earnedKobo: (m['earnedKobo'] as num?)?.toInt() ?? 0,
+    usedCode: m['usedCode'] == true,
+    canApply: m['canApply'] == true,
+  );
+}

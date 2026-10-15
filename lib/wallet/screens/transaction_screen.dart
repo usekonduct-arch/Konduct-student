@@ -1,8 +1,10 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n.dart';
+import '../../l10n/text.dart';
 import '../../app/app_info.dart';
 import '../../theme/tokens.dart';
 import '../../ui/kit.dart';
@@ -177,7 +179,7 @@ const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 
 /// "Wed 15 Oct 2026 · 14:05:09"
 String receiptTime(DateTime t) {
   String two(int n) => n.toString().padLeft(2, '0');
-  return '${_days[t.weekday - 1]} ${t.day} ${_months[t.month - 1]} ${t.year} · ${two(t.hour)}:${two(t.minute)}:${two(t.second)}';
+  return '${tr(_days[t.weekday - 1])} ${t.day} ${tr(_months[t.month - 1])} ${t.year} · ${two(t.hour)}:${two(t.minute)}:${two(t.second)}';
 }
 
 /// The printed receipt for one line of activity, with what the ledger says about it.

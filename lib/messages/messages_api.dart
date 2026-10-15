@@ -142,6 +142,9 @@ abstract class MessagesApi {
   /// Konduct's social handles and hashtag, for the caption when someone shares a ride or their
   /// monthly Wrapped (config/brand, set in the console).
   Stream<Brand> brand() => Stream.value(const Brand());
+
+  /// Tells the backend the app's language, so push notifications arrive in it too.
+  Future<void> setLanguage(String code) async {}
 }
 
 /// Konduct's accounts to tag when sharing. Empty handles are left out of captions.

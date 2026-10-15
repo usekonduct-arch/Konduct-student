@@ -1,16 +1,19 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
+import '../l10n/l10n.dart';
+import '../l10n/text.dart';
 import '../theme/tokens.dart';
 import '../ui/kit.dart';
 import '../ui/web_screen.dart';
 import 'messages_api.dart';
 import 'voice.dart';
 
-/// In-app screens an `app:<name>` link can open (for example "topup" → the top-up screen).
-typedef AppActions = Map<String, VoidCallback>;
+/// In-app screens an `app:<name>` link can open (for example "topup" → the top-up screen). A link
+/// can carry one argument after a slash, `app:buses/<parkId>`, which the action receives ('' if none).
+typedef AppActions = Map<String, void Function(String arg)>;
 
 /// Follows a message or ad link: web pages open inside the app, app: links open a screen.
 void openLink(BuildContext context, String? link, AppActions actions) {
@@ -18,7 +21,10 @@ void openLink(BuildContext context, String? link, AppActions actions) {
   if (link.startsWith('https://')) {
     openWeb(context, link);
   } else if (link.startsWith('app:')) {
-    actions[link.substring(4)]?.call();
+    final rest = link.substring(4);
+    final slash = rest.indexOf('/');
+    final name = slash < 0 ? rest : rest.substring(0, slash);
+    actions[name]?.call(slash < 0 ? '' : rest.substring(slash + 1));
   }
 }
 
@@ -30,7 +36,7 @@ String _ago(DateTime t) {
   if (d.inHours < 1) return '${d.inMinutes} min ago';
   if (d.inDays < 1) return '${d.inHours} h ago';
   if (d.inDays < 7) return '${d.inDays} d ago';
-  return '${t.day} ${_months[t.month - 1]}';
+  return '${t.day} ${tr(_months[t.month - 1])}';
 }
 
 /// A picture from the web that never breaks the layout while loading or when it fails.
@@ -73,7 +79,7 @@ class _NoticeBellState extends State<NoticeBell> {
         final unread = (s.data ?? const <Notice>[]).where((n) => !n.read).length;
         return Semantics(
           button: true,
-          label: unread == 0 ? 'Notifications' : 'Notifications, $unread unread',
+          label: tr(unread == 0 ? 'Notifications' : 'Notifications, $unread unread'),
           excludeSemantics: true,
           child: Pressable(
             onTap: () => Navigator.of(context).push(
@@ -148,7 +154,7 @@ class _Page extends StatelessWidget {
                     children: [
                       Semantics(
                         button: true,
-                        label: 'Back',
+                        label: tr('Back'),
                         child: Pressable(
                           onTap: () => Navigator.of(context).maybePop(),
                           child: Container(
@@ -207,7 +213,7 @@ const _days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday
 const _monthsLong = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 String _fullDate(DateTime t) =>
-    '${_days[t.weekday - 1]} ${t.day} ${_monthsLong[t.month - 1]}${t.year == DateTime.now().year ? '' : ' ${t.year}'} · ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    '${tr(_days[t.weekday - 1])} ${t.day} ${tr(_monthsLong[t.month - 1])}${t.year == DateTime.now().year ? '' : ' ${t.year}'} · ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
 /// "Today", "This week" or "Earlier": the heading a message sits under in the inbox.
 String _bucket(DateTime t) {
@@ -331,7 +337,7 @@ class _NoticeTile extends StatelessWidget {
     final look = _Look.of(n);
     return Semantics(
       button: true,
-      label: '${n.read ? '' : 'Unread. '}${look.label}: ${n.title}. ${_ago(n.at)}',
+      label: '${n.read ? '' : '${tr('Unread.')} '}${tr(look.label)}: ${n.title}. ${_ago(n.at)}',
       excludeSemantics: true,
       child: Pressable(
         scale: 0.98,
@@ -418,7 +424,7 @@ class NoticeScreen extends StatelessWidget {
                 children: [
                   Semantics(
                     button: true,
-                    label: 'Back',
+                    label: tr('Back'),
                     child: Pressable(
                       onTap: () => Navigator.of(context).maybePop(),
                       child: Container(
@@ -621,7 +627,7 @@ class _Banner extends StatelessWidget {
     final cta = ad.buttons.isEmpty ? null : ad.buttons.first;
     final hasText = ad.title.isNotEmpty || cta != null;
     return Semantics(
-      label: ad.title.isEmpty ? 'Advert' : 'Advert: ${ad.title}',
+      label: tr(ad.title.isEmpty ? 'Advert' : 'Advert: ${ad.title}'),
       button: ad.link.isNotEmpty,
       child: GestureDetector(
         onTap: ad.link.isEmpty ? null : () => openLink(context, ad.link, actions),
@@ -900,7 +906,7 @@ class _CloseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: 'Close',
+    label: tr('Close'),
     child: Pressable(
       onTap: () => Navigator.of(context).pop(),
       child: Container(

@@ -1,8 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n.dart';
+import '../../l10n/language_sheet.dart';
+import '../../l10n/text.dart';
 import '../../theme/tokens.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
@@ -40,6 +43,8 @@ class WelcomeScreen extends StatelessWidget {
                           Text('konduct', style: KText.h3(K.paper).copyWith(fontWeight: FontWeight.w800, fontSize: 22)),
                           const Spacer(),
                           if (demo) const DemoBadge(),
+                          const SizedBox(width: 8),
+                          const _LanguageButton(),
                         ],
                       ),
                     ),
@@ -149,4 +154,34 @@ class _TickerState extends State<_Ticker> {
       ),
     );
   }
+}
+
+/// The app's language, before signing up: shows the current one in its own name.
+class _LanguageButton extends StatelessWidget {
+  const _LanguageButton();
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: tr('Language'),
+    child: Pressable(
+      onTap: () => pickLanguage(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.translate_rounded, color: K.paper, size: 16),
+            const SizedBox(width: 6),
+            Text(L10nScope.watch(context).nativeName, translate: false, style: KText.small(K.paper).copyWith(fontWeight: FontWeight.w700)),
+          ],
+        ),
+      ),
+    ),
+  );
 }

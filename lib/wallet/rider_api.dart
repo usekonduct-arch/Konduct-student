@@ -86,6 +86,18 @@ abstract class RiderApi {
 
   /// Sends [amountKobo] to the approved bank account.
   Future<void> withdraw({required int amountKobo, required String pin});
+
+  /// Parks this rider asked to hear about ("tell me when a bus is here"), still waiting.
+  Stream<Set<String>> parkWatches();
+
+  /// Starts or stops waiting for a bus with free seats at [parkId]. The next one sends a push.
+  Future<void> watchPark(String parkId, {required bool on});
+
+  /// The invite card: this rider's referral code, the rewards and friends who joined.
+  Future<ReferralInfo> referral();
+
+  /// Enters a friend's referral code (new riders only). Returns the welcome bonus, paid after the first ride.
+  Future<int> applyReferral(String code);
 }
 
 final _rand = Random.secure();

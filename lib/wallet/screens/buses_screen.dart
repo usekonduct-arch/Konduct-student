@@ -1,7 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
+import '../../l10n/l10n.dart';
+import '../../l10n/text.dart';
 import '../../theme/tokens.dart';
 import '../../ui/kit.dart';
 import '../../ui/web_screen.dart';
@@ -97,7 +99,7 @@ class _ParkCard extends StatelessWidget {
     final count = buses.length;
     return Semantics(
       button: true,
-      label: '${park.name}: $count ${count == 1 ? 'bus' : 'buses'} checked in. $detail.',
+      label: tr('${park.name}: $count ${count == 1 ? 'bus' : 'buses'} checked in. $detail.'),
       excludeSemantics: true,
       child: Pressable(
         scale: 0.97,
@@ -140,7 +142,7 @@ class _RoadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: '$count ${count == 1 ? 'bus' : 'buses'} on the road',
+    label: tr('$count ${count == 1 ? 'bus' : 'buses'} on the road'),
     excludeSemantics: true,
     child: Pressable(
       scale: 0.97,
@@ -203,7 +205,9 @@ class _BusesScreenState extends State<BusesScreen> {
   late Stream<List<LiveBus>> _buses;
   late Stream<List<Park>> _parks;
   late Stream<List<FareRoute>> _routes;
+  late Stream<Set<String>> _watches;
   late String? _filter = widget.parkId;
+  bool _watchBusy = false;
   // Seats reset and check-ins lapse on their own; re-read the clock now and then.
   late final Timer _tick = Timer.periodic(const Duration(seconds: 30), (_) => setState(() {}));
 
@@ -217,6 +221,19 @@ class _BusesScreenState extends State<BusesScreen> {
     _buses = widget.api.buses();
     _parks = widget.api.parks();
     _routes = widget.api.routes();
+    _watches = widget.api.parkWatches();
+  }
+
+  Future<void> _watch(Park park, bool on) async {
+    setState(() => _watchBusy = true);
+    try {
+      await widget.api.watchPark(park.id, on: on);
+      if (mounted && on) showSnack(context, tr("We'll tell you when a bus with free seats checks in at {park}.", {'park': park.name}));
+    } on ApiException catch (e) {
+      if (mounted) showSnack(context, e.message);
+    } finally {
+      if (mounted) setState(() => _watchBusy = false);
+    }
   }
 
   @override
@@ -282,6 +299,19 @@ class _BusesScreenState extends State<BusesScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                if (parks.where((x) => x.id == _filter).firstOrNull case final park?)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: StreamBuilder<Set<String>>(
+                      stream: _watches,
+                      builder: (_, w) => _WatchRow(
+                        park: park,
+                        on: w.data?.contains(park.id) ?? false,
+                        busy: _watchBusy,
+                        onChanged: (v) => _watch(park, v),
+                      ),
+                    ),
+                  ),
                 if (parks.where((x) => x.id == _filter && x.hasPin).firstOrNull case final park?)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -393,7 +423,7 @@ class BusCard extends StatelessWidget {
         left == 0 ? 'full' : 'about $left of ${bus.capacity} seats free',
         status,
         if (bus.fareKobo > 0) 'fare ${naira(bus.fareKobo)}',
-      ].join(', '),
+      ].map(tr).join(', '),
       excludeSemantics: true,
       child: Panel(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -534,6 +564,45 @@ class _Note extends StatelessWidget {
           Icon(icon, color: p.subtle),
           const SizedBox(width: 12),
           Expanded(child: Text(text, style: KText.small(p.text))),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Tell me when a bus is here": the next bus with free seats that checks in at this park sends a
+/// push, then it switches itself off. It lapses after an hour and a half.
+class _WatchRow extends StatelessWidget {
+  const _WatchRow({required this.park, required this.on, required this.busy, required this.onChanged});
+  final Park park;
+  final bool on, busy;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return Panel(
+      color: on ? K.yellow.withValues(alpha: 0.18) : null,
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      child: Row(
+        children: [
+          Icon(on ? Icons.notifications_active_rounded : Icons.notifications_none_rounded, color: on ? K.yellowDeep : p.text),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Tell me when a bus is here', style: KText.body(p.text).copyWith(fontWeight: FontWeight.w700)),
+                Text(on ? 'We\'ll send a notification for the next bus with seats.' : 'One notification for the next bus with free seats.', style: KText.small(p.subtle)),
+              ],
+            ),
+          ),
+          Switch(
+            value: on,
+            onChanged: busy ? null : onChanged,
+            activeThumbColor: K.ink,
+            activeTrackColor: K.yellow,
+          ),
         ],
       ),
     );

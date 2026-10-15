@@ -1,6 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n.dart';
+import '../../l10n/text.dart';
+import '../../security/biometric.dart';
 import '../../theme/tokens.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
@@ -249,7 +252,8 @@ class _AddBankScreenState extends State<AddBankScreen> {
       );
       if (mounted) Navigator.of(context).pop();
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      final stale = await BiometricPin.instance.rejected(e.reason);
+      if (mounted) setState(() => _error = stale ? "Your saved PIN didn't work, so fingerprint payments are off. Try again and type your PIN." : e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -462,7 +466,7 @@ class _PasswordSheetState extends State<_PasswordSheet> {
                 suffixIcon: IconButton(
                   icon: Icon(_show ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: p.subtle),
                   onPressed: () => setState(() => _show = !_show),
-                  tooltip: _show ? 'Hide password' : 'Show password',
+                  tooltip: tr(_show ? 'Hide password' : 'Show password'),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),

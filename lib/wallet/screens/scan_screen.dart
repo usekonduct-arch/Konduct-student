@@ -1,11 +1,17 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../app/connection.dart';
+import '../../app/current.dart';
+import '../../app/intents.dart';
+import '../../l10n/l10n.dart';
+import '../../l10n/text.dart';
 import '../../theme/tokens.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
 import '../models.dart';
+import '../recent_vehicles.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'confirm_screen.dart';
@@ -19,8 +25,11 @@ class PaySource {
 /// Camera view with a scan frame. A Konduct sticker (K1.…) is priced by the server, then the
 /// rider confirms on the next screen. Typing the sticker code works without the camera.
 class ScanScreen extends StatefulWidget {
-  const ScanScreen({super.key, required this.api, this.demoCamera = false});
+  const ScanScreen({super.key, required this.api, this.demoCamera = false, this.code});
   final RiderApi api;
+
+  /// A sticker code from a link (konduct://pay?code=…): priced straight away, no camera needed.
+  final String? code;
 
   /// Tests and demo mode can skip the real camera.
   final bool demoCamera;
@@ -36,6 +45,19 @@ class _ScanScreenState extends State<ScanScreen> {
   int _passengers = 1;
   bool _busy = false;
   String? _error;
+  List<RecentVehicle> _recent = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    if (Current.uid.isNotEmpty) {
+      RecentVehicles.load(Current.uid).then((r) {
+        if (mounted) setState(() => _recent = r);
+      });
+    }
+    final code = widget.code;
+    if (code != null && code.isNotEmpty) WidgetsBinding.instance.addPostFrameCallback((_) => _price(PaySource(code: code.toUpperCase())));
+  }
 
   @override
   void dispose() {
@@ -46,6 +68,12 @@ class _ScanScreenState extends State<ScanScreen> {
   void _onDetect(BarcodeCapture capture) {
     final raw = capture.barcodes.map((b) => b.rawValue).whereType<String>().firstOrNull;
     if (raw == null || _busy) return;
+    // A link sticker (https://konduct.app/pay/AB12CD) opens the app from any camera; here it's just the code.
+    final link = AppIntents.linkFor(Uri.tryParse(raw.trim()));
+    if (link != null && link.startsWith('app:pay/')) {
+      _price(PaySource(code: link.substring(8).toUpperCase()));
+      return;
+    }
     if (!raw.trim().startsWith('K1.')) {
       setState(() => _error = 'That isn\'t a Konduct code. Look for the yellow Konduct sticker.');
       return;
@@ -55,6 +83,10 @@ class _ScanScreenState extends State<ScanScreen> {
 
   Future<void> _price(PaySource src) async {
     if (_busy) return;
+    if (Connection.instance.isOffline) {
+      HapticFeedback.heavyImpact();
+      return setState(() => _error = "You're offline. Turn on data or Wi-Fi to pay with Konduct, or pay the driver in cash.");
+    }
     HapticFeedback.mediumImpact();
     setState(() {
       _busy = true;
@@ -192,6 +224,10 @@ class _ScanScreenState extends State<ScanScreen> {
                             ),
                     ),
                     PassengerStepper(value: _passengers, onChanged: _busy ? null : (v) => setState(() => _passengers = v), dark: true),
+                    if (_recent.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      _RecentRow(recent: _recent, onPick: _busy ? null : (v) => _price(PaySource(qr: v.qr, code: v.qr == null ? v.code : null))),
+                    ],
                     const SizedBox(height: 14),
                     Pressable(
                       onTap: _busy ? null : _typeCode,
@@ -253,7 +289,7 @@ class PassengerStepper extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: dark ? Colors.white24 : p.border),
             ),
-            child: Icon(icon, color: fg, semanticLabel: label),
+            child: Icon(icon, color: fg, semanticLabel: tr(label)),
           ),
         ),
       );
@@ -449,4 +485,55 @@ class _CodeSheetState extends State<_CodeSheet> {
       ),
     );
   }
+}
+
+/// "Pay again": the last vehicles paid on this phone. The next screen shows the plate to check.
+class _RecentRow extends StatelessWidget {
+  const _RecentRow({required this.recent, required this.onPick});
+  final List<RecentVehicle> recent;
+  final ValueChanged<RecentVehicle>? onPick;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text('PAY AGAIN', style: KText.kicker(K.muteDark)),
+      const SizedBox(height: 8),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final v in recent)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Semantics(
+                  button: true,
+                  label: tr('Pay {plate} again, driver {driver}', {'plate': v.plate, 'driver': v.driver}),
+                  excludeSemantics: true,
+                  child: Pressable(
+                    onTap: onPick == null ? null : () => onPick!(v),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(v.plate, style: KText.mono(K.yellow, size: 13)),
+                          const SizedBox(height: 2),
+                          Text(v.driver, translate: false, maxLines: 1, style: KText.small(Colors.white70)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ],
+  );
 }

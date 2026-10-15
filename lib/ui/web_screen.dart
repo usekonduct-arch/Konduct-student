@@ -1,8 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../l10n/l10n.dart';
+import '../l10n/text.dart';
 import '../theme/tokens.dart';
 import 'kit.dart';
 
@@ -106,7 +108,7 @@ class _WebScreenState extends State<WebScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                   child: Row(
                     children: [
-                      _HeadButton(icon: Icons.close_rounded, label: 'Close', onTap: _close),
+                      _HeadButton(icon: Icons.close_rounded, label: tr('Close'), onTap: _close),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -166,7 +168,7 @@ class _HeadButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: label,
+    label: tr(label),
     child: Pressable(
       onTap: onTap,
       child: Container(

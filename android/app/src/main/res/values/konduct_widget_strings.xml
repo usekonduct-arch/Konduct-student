@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shown until the app has written its own (translated) text into the widget. -->
+<resources>
+    <string name="widget_description">Scan to pay, and your balance if you choose</string>
+    <string name="widget_subtitle">Tap to scan and pay</string>
+    <string name="widget_button">Scan to pay</string>
+    <string name="widget_button_link" translatable="false">konduct-widget://scan</string>
+</resources>

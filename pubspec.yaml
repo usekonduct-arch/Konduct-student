@@ -1,7 +1,7 @@
 name: konduct_student
 description: "Konduct for students: pay campus rides with a scan."
 publish_to: 'none'
-version: 0.1.0
+version: 0.2.0+2
 
 environment:
   sdk: ^3.10.3
@@ -24,6 +24,14 @@ dependencies:
   share_plus: ^13.3.1
   pdf: ^3.12.0
   path_provider: ^2.1.6
+  local_auth: ^3.0.2
+  flutter_secure_storage: ^11.2.0
+  connectivity_plus: ^7.3.2
+  firebase_crashlytics: ^5.4.0
+  package_info_plus: ^10.2.2
+  quick_actions: ^1.1.1
+  home_widget: ^0.10.0
+  app_links: ^7.0.0
 
 dev_dependencies:
   flutter_test:
@@ -34,6 +42,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/sounds/
+    - assets/share/
   fonts:
     - family: Bricolage
       fonts:
@@ -54,6 +63,16 @@ flutter:
         - asset: assets/fonts/Figtree-700.ttf
           weight: 700
         - asset: assets/fonts/Figtree-800.ttf
+          weight: 800
+    # Fallback for letters the brand fonts lack: Yoruba ẹ ọ ṣ with tone marks, Hausa ɓ ɗ ƙ ƴ, and ₦.
+    # A Latin subset of Noto Sans (SIL Open Font License, assets/fonts/NotoSans-OFL.txt).
+    - family: NotoSansLatin
+      fonts:
+        - asset: assets/fonts/NotoSans-500.ttf
+          weight: 500
+        - asset: assets/fonts/NotoSans-700.ttf
+          weight: 700
+        - asset: assets/fonts/NotoSans-800.ttf
           weight: 800
     - family: JetBrainsMono
       fonts:

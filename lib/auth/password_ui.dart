@@ -1,7 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
+import '../l10n/text.dart';
 import '../theme/tokens.dart';
 import '../ui/field.dart';
 import '../ui/kit.dart';

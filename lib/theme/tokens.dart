@@ -17,6 +17,9 @@ abstract final class K {
   static const coral = Color(0xFFFF5A3C);
   static const sky = Color(0xFFBFE3F2);
 
+  /// Letters the brand fonts don't have (Yoruba ẹ ọ ṣ with tone marks, Hausa ɓ ɗ ƙ ƴ, ₦) come from here.
+  static const fallback = ['NotoSansLatin'];
+
   static const display = 'Bricolage';
   static const body = 'Figtree';
   static const mono = 'JetBrainsMono';
@@ -65,6 +68,7 @@ ThemeData buildTheme(Palette p, {required bool dark}) {
     useMaterial3: true,
     brightness: dark ? Brightness.dark : Brightness.light,
     fontFamily: K.body,
+    fontFamilyFallback: K.fallback,
     scaffoldBackgroundColor: p.bg,
     colorScheme: ColorScheme.fromSeed(
       seedColor: K.yellow,
@@ -92,11 +96,11 @@ ThemeData buildTheme(Palette p, {required bool dark}) {
 
 /// Type scale.
 abstract final class KText {
-  static TextStyle hero(Color c) => TextStyle(fontFamily: K.display, fontWeight: FontWeight.w800, fontSize: 44, height: 0.95, letterSpacing: -1.8, color: c);
-  static TextStyle title(Color c) => TextStyle(fontFamily: K.display, fontWeight: FontWeight.w800, fontSize: 32, height: 1.0, letterSpacing: -1.2, color: c);
-  static TextStyle h3(Color c) => TextStyle(fontFamily: K.display, fontWeight: FontWeight.w700, fontSize: 21, height: 1.15, letterSpacing: -0.5, color: c);
-  static TextStyle body(Color c) => TextStyle(fontFamily: K.body, fontWeight: FontWeight.w500, fontSize: 16, height: 1.45, color: c);
-  static TextStyle small(Color c) => TextStyle(fontFamily: K.body, fontWeight: FontWeight.w600, fontSize: 13, height: 1.35, color: c);
-  static TextStyle kicker(Color c) => TextStyle(fontFamily: K.mono, fontWeight: FontWeight.w700, fontSize: 11.5, letterSpacing: 1.8, color: c);
-  static TextStyle mono(Color c, {double size = 16}) => TextStyle(fontFamily: K.mono, fontWeight: FontWeight.w700, fontSize: size, color: c);
+  static TextStyle hero(Color c) => TextStyle(fontFamily: K.display, fontFamilyFallback: K.fallback, fontWeight: FontWeight.w800, fontSize: 44, height: 0.95, letterSpacing: -1.8, color: c);
+  static TextStyle title(Color c) => TextStyle(fontFamily: K.display, fontFamilyFallback: K.fallback, fontWeight: FontWeight.w800, fontSize: 32, height: 1.0, letterSpacing: -1.2, color: c);
+  static TextStyle h3(Color c) => TextStyle(fontFamily: K.display, fontFamilyFallback: K.fallback, fontWeight: FontWeight.w700, fontSize: 21, height: 1.15, letterSpacing: -0.5, color: c);
+  static TextStyle body(Color c) => TextStyle(fontFamily: K.body, fontFamilyFallback: K.fallback, fontWeight: FontWeight.w500, fontSize: 16, height: 1.45, color: c);
+  static TextStyle small(Color c) => TextStyle(fontFamily: K.body, fontFamilyFallback: K.fallback, fontWeight: FontWeight.w600, fontSize: 13, height: 1.35, color: c);
+  static TextStyle kicker(Color c) => TextStyle(fontFamily: K.mono, fontFamilyFallback: K.fallback, fontWeight: FontWeight.w700, fontSize: 11.5, letterSpacing: 1.8, color: c);
+  static TextStyle mono(Color c, {double size = 16}) => TextStyle(fontFamily: K.mono, fontFamilyFallback: K.fallback, fontWeight: FontWeight.w700, fontSize: size, color: c);
 }

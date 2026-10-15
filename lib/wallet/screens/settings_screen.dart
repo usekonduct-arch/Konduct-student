@@ -1,6 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
+import '../../app/home_widget_sync.dart';
+import '../../l10n/l10n.dart';
+import '../../l10n/language_sheet.dart';
+import '../../l10n/text.dart';
+import '../../security/biometric.dart';
 import '../../app/app_info.dart';
 import '../../auth/auth_repository.dart';
 import '../../auth/screens/pin_screen.dart' show isWeakPin;
@@ -10,6 +15,7 @@ import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'bank_account_screen.dart';
+import 'invite_screen.dart';
 import '../../support/support_screens.dart';
 import 'password_screen.dart';
 import 'wrapped_screen.dart';
@@ -27,6 +33,43 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late final _profile = widget.api.profile();
+  late final _balance = widget.api.balance();
+  final _bioAvailable = BiometricPin.instance.available();
+  bool _bioOn = false;
+  bool _widgetBalance = false;
+
+  @override
+  void initState() {
+    super.initState();
+    BiometricPin.instance.enabled().then((v) {
+      if (mounted) setState(() => _bioOn = v);
+    });
+    HomeWidgetSync.showsBalance().then((v) {
+      if (mounted) setState(() => _widgetBalance = v);
+    });
+  }
+
+  /// Fingerprint payments: on needs the PIN once (kept in the phone's secure store) and a fingerprint.
+  Future<void> _setBiometric(bool on) async {
+    final bio = BiometricPin.instance;
+    if (!on) {
+      await bio.disable();
+      if (mounted) setState(() => _bioOn = false);
+      return;
+    }
+    final pin = await askPin(context, title: 'Enter your PIN', message: 'Once, so your fingerprint or face can stand in for it.');
+    if (pin == null || !mounted) return;
+    final ok = await bio.enable(pin);
+    if (!mounted) return;
+    setState(() => _bioOn = ok);
+    showSnack(context, ok ? 'Done. Use your fingerprint or face when a payment asks for your PIN.' : 'Fingerprint payments weren\'t turned on.');
+  }
+
+  Future<void> _setWidgetBalance(bool on) async {
+    setState(() => _widgetBalance = on);
+    final kobo = await _balance.first.timeout(const Duration(seconds: 5), onTimeout: () => null).catchError((_) => null);
+    await HomeWidgetSync.setShowsBalance(on, balanceText: kobo == null ? null : naira(kobo));
+  }
 
   Future<void> _changePin() async {
     final old = await askPin(context, title: 'Your current PIN');
@@ -50,6 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     try {
       await widget.api.changePin(oldPin: old, newPin: fresh);
+      await BiometricPin.instance.replace(fresh);
       if (mounted) showSnack(context, 'PIN changed.');
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message);
@@ -144,6 +188,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
               const SizedBox(height: 22),
+              Text('APP', style: KText.kicker(p.subtle)),
+              const SizedBox(height: 8),
+              _action(
+                context,
+                Icons.translate_rounded,
+                'Language',
+                subtitle: L10nScope.watch(context).nativeName,
+                onTap: () => pickLanguage(context),
+              ),
+              _action(
+                context,
+                Icons.card_giftcard_rounded,
+                'Invite friends',
+                subtitle: 'Share your code. You both get credit after their first ride.',
+                onTap: () => pushScreen(context, InviteScreen(api: widget.api)),
+              ),
+              _toggle(
+                context,
+                Icons.widgets_rounded,
+                'Balance on home-screen widget',
+                subtitle: 'Off: the widget only shows Scan to pay.',
+                value: _widgetBalance,
+                onChanged: _setWidgetBalance,
+              ),
+              const SizedBox(height: 14),
               Text('YOUR MONTHS', style: KText.kicker(p.subtle)),
               const SizedBox(height: 8),
               _action(
@@ -174,6 +243,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => pushScreen(context, PasswordScreen(api: widget.api, email: widget.session.email)),
               ),
               _action(context, Icons.pin_rounded, 'Change PIN', onTap: _changePin),
+              FutureBuilder<bool>(
+                future: _bioAvailable,
+                builder: (_, a) => a.data == true
+                    ? _toggle(
+                        context,
+                        Icons.fingerprint_rounded,
+                        'Pay with fingerprint or face',
+                        subtitle: 'Instead of typing your PIN.',
+                        value: _bioOn,
+                        onChanged: _setBiometric,
+                      )
+                    : const SizedBox.shrink(),
+              ),
               _action(context, Icons.lock_person_rounded, 'Lock my account', subtitle: 'Phone stolen? Freeze your wallet now.', color: K.coral, onTap: _lock),
               const SizedBox(height: 14),
               Text('HELP', style: KText.kicker(p.subtle)),
@@ -224,6 +306,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _toggle(BuildContext context, IconData icon, String title, {String? subtitle, required bool value, required ValueChanged<bool> onChanged}) {
+    final p = Palette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: MergeSemantics(
+        child: Panel(
+          padding: const EdgeInsets.fromLTRB(18, 10, 10, 10),
+          child: Row(
+            children: [
+              Icon(icon, color: p.text),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: KText.body(p.text).copyWith(fontWeight: FontWeight.w700)),
+                    if (subtitle != null) Text(subtitle, style: KText.small(p.subtle)),
+                  ],
+                ),
+              ),
+              Switch(value: value, onChanged: onChanged, activeThumbColor: K.ink, activeTrackColor: K.yellow),
+            ],
+          ),
+        ),
       ),
     );
   }

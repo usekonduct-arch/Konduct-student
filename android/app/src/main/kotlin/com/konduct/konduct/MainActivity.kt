@@ -6,9 +6,10 @@ import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity() {
+/** A FragmentActivity because fingerprint and face prompts (local_auth) need one. */
+class MainActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         createNotificationChannels()

@@ -1,8 +1,10 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n.dart';
+import '../../l10n/text.dart';
 import '../../theme/tokens.dart';
 import '../../ui/kit.dart';
 import '../models.dart';
@@ -94,7 +96,7 @@ class _RateSheetState extends State<_RateSheet> {
                     Semantics(
                       button: true,
                       selected: _stars == i,
-                      label: '$i ${i == 1 ? 'star' : 'stars'}, ${_labels[i - 1]}',
+                      label: tr('$i ${i == 1 ? 'star' : 'stars'}, ${_labels[i - 1]}'),
                       excludeSemantics: true,
                       child: Pressable(
                         scale: 0.85,

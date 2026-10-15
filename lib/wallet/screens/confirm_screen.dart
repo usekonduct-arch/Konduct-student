@@ -1,12 +1,17 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
+import '../../app/connection.dart';
+import '../../app/current.dart';
+import '../../l10n/text.dart';
+import '../../security/biometric.dart';
 import '../../theme/tokens.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
 import '../models.dart';
+import '../recent_vehicles.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'receipt_screen.dart';
@@ -72,6 +77,10 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
 
   Future<void> _pay() async {
     if (_expired) return _reprice();
+    if (Connection.instance.isOffline) {
+      HapticFeedback.heavyImpact();
+      return setState(() => _error = "You're offline. Turn on data or Wi-Fi, then pay. Nothing was charged.");
+    }
     var repeat = false;
     if (_q.recentlyPaidThisVehicle) {
       final go = await _askRepeat();
@@ -81,7 +90,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     String? pin;
     if (_q.needsPin) {
       if (!mounted) return;
-      pin = await askPin(context, title: 'Enter your PIN', message: 'Payments of ₦500 and above need your PIN.');
+      pin = await askPin(context, title: 'Enter your PIN', message: 'Payments of ₦500 and above need your PIN.', biometric: true);
       if (pin == null) return;
     }
     await _confirm(pin: pin, repeat: repeat);
@@ -94,6 +103,13 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     });
     try {
       final r = await api.confirm(quoteId: _q.quoteId, idempotencyKey: _key, pin: pin, repeatConfirmed: repeat);
+      // Best effort, and never holds up the receipt.
+      if (Current.uid.isNotEmpty) {
+        unawaited(RecentVehicles.remember(
+          Current.uid,
+          RecentVehicle(qr: widget.source.qr, code: widget.source.code, plate: _q.plate, driver: _q.driverFirstName, route: _q.tripRoute?.label ?? _q.route, at: DateTime.now()),
+        ));
+      }
       if (!mounted) return;
       HapticFeedback.heavyImpact();
       await Navigator.of(context).pushReplacement(
@@ -108,7 +124,10 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       setState(() => _busy = false);
       switch (e.reason) {
         case 'pin_wrong' || 'pin_required':
-          final again = await askPin(context, title: 'Enter your PIN', error: e.message);
+          // A saved PIN that's out of date is forgotten; say why the fingerprint stopped working.
+          final stale = await BiometricPin.instance.rejected(e.reason);
+          if (!mounted) return;
+          final again = await askPin(context, title: 'Enter your PIN', error: stale ? "Your saved PIN didn't work, so fingerprint payments are off. Type your PIN." : e.message);
           if (again != null) await _confirm(pin: again, repeat: repeat);
         case 'repeat_scan':
           if (await _askRepeat() == true) await _confirm(pin: pin, repeat: true);
@@ -121,6 +140,10 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
           // Others scanned in meanwhile: offer the seats that are left.
           showSnack(context, e.message);
           await _reprice(passengers: (e.details['seatsLeft'] as num).toInt());
+        case 'unavailable' || 'deadline-exceeded':
+          // The request may or may not have reached Konduct. The same key makes a retry safe.
+          HapticFeedback.heavyImpact();
+          setState(() => _error = "We couldn't reach Konduct, so this payment may not have gone through. Tap Pay again: you won't be charged twice.");
         default:
           HapticFeedback.heavyImpact();
           setState(() => _error = e.message);

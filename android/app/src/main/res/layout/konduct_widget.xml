@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home-screen widget (KonductWidget.kt). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/konduct_widget_bg"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Konduct"
+        android:textColor="#FFC700"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.08" />
+
+    <TextView
+        android:id="@+id/widget_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="#F4F3EC"
+        android:textSize="26sp"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/widget_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="#A3AAB3"
+        android:textSize="13sp"
+        android:maxLines="2" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
+        android:id="@+id/widget_button"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:background="@drawable/konduct_widget_button"
+        android:gravity="center"
+        android:textColor="#0E1115"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+</LinearLayout>

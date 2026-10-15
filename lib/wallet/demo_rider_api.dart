@@ -440,4 +440,42 @@ class DemoRiderApi implements RiderApi {
       _touch();
     });
   }
+
+  final _watching = <String>{};
+  var _usedCode = false;
+
+  @override
+  Stream<Set<String>> parkWatches() => _live(() => {..._watching});
+
+  @override
+  Future<void> watchPark(String parkId, {required bool on}) async {
+    await _lag();
+    on ? _watching.add(parkId) : _watching.remove(parkId);
+    _touch();
+  }
+
+  @override
+  Future<ReferralInfo> referral() async {
+    await _lag();
+    return ReferralInfo(
+      code: 'K7Q2MX',
+      enabled: true,
+      bonusKobo: 20000,
+      welcomeKobo: 10000,
+      joined: 3,
+      rewarded: 2,
+      earnedKobo: 40000,
+      usedCode: _usedCode,
+      canApply: !_usedCode,
+    );
+  }
+
+  @override
+  Future<int> applyReferral(String code) async {
+    await _lag();
+    if (code.toUpperCase() == 'K7Q2MX') throw const ApiException('own_code', "That's your own code. Share it with friends instead.");
+    if (code.length != 6) throw const ApiException('bad_code', 'Referral codes are 6 letters and numbers.');
+    _usedCode = true;
+    return 10000;
+  }
 }

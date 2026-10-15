@@ -348,6 +348,26 @@ class FirebaseRiderApi implements RiderApi {
   @override
   Future<void> withdraw({required int amountKobo, required String pin}) => _call('riderWithdraw', {'amountKobo': amountKobo, 'pin': pin});
 
+  @override
+  Stream<Set<String>> parkWatches() => _db
+      .collection('parkWatches')
+      .where('uid', isEqualTo: _uid)
+      .snapshots()
+      .map((q) {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        return {for (final d in q.docs) if (((d.data()['expiresAtMs'] as num?) ?? 0) > now) d.data()['parkId'] as String};
+      })
+      .handleError((_) {});
+
+  @override
+  Future<void> watchPark(String parkId, {required bool on}) => _call('riderWatchPark', {'parkId': parkId, 'on': on});
+
+  @override
+  Future<ReferralInfo> referral() async => ReferralInfo.fromMap(await _call('riderReferral', {}));
+
+  @override
+  Future<int> applyReferral(String code) async => ((await _call('riderApplyReferral', {'code': code}))['welcomeKobo'] as num?)?.toInt() ?? 0;
+
   Future<Map<String, dynamic>> _call(String name, Map<String, Object?> data) async {
     try {
       final callable = AppConfig.backendUrl.isEmpty ? _functions.httpsCallable(name) : _functions.httpsCallableFromUrl('${AppConfig.backendUrl}/$name');

@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
+import '../../l10n/text.dart';
 import '../../messages/messages_api.dart';
 import '../../theme/tokens.dart';
 import '../../ui/kit.dart';
@@ -116,7 +117,7 @@ Future<void> openRiderWrapped(BuildContext context, RiderApi api, DateTime month
         fullscreenDialog: true,
         builder: (_) => WrappedStory(
           slides: w.slides,
-          card: StoryCard(kicker: 'My ${monthName(month)} on Konduct', headline: 'Konduct Wrapped', stats: w.stats, tags: brand.cardTags),
+          card: StoryCard(kicker: 'My ${monthName(month)} on Konduct', headline: 'Konduct\nWrapped', stats: w.stats, tags: brand.cardTags, style: StoryStyle.wrapped),
           caption: brand.caption('My ${monthName(month)} on Konduct: ${results[0].length} rides, zero cash.'),
           fileName: 'konduct-wrapped-${month.year}-${month.month}',
         ),

@@ -4,7 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -13,6 +13,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../l10n/l10n.dart';
+import '../l10n/text.dart';
 import '../theme/tokens.dart';
 import 'kit.dart';
 
@@ -336,7 +338,7 @@ class _Head extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'Receipt printer, ${state.toLowerCase()}',
+    label: tr('Receipt printer, {state}', {'state': tr(state).toLowerCase()}),
     child: Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
@@ -371,7 +373,7 @@ class _Head extends StatelessWidget {
               ),
               const Spacer(),
               IconButton(
-                tooltip: muted ? 'Turn printer sound on' : 'Mute printer sound',
+                tooltip: tr(muted ? 'Turn printer sound on' : 'Mute printer sound'),
                 visualDensity: VisualDensity.compact,
                 onPressed: onMute,
                 icon: Icon(muted ? Icons.volume_off_rounded : Icons.volume_up_rounded, color: K.muteDark, size: 20),

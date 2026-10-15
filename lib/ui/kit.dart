@@ -1,8 +1,9 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
+import '../l10n/text.dart';
 import '../theme/tokens.dart';
 
 /// Scales down while pressed and springs back. Wrap anything tappable.
@@ -27,6 +28,15 @@ class _PressableState extends State<Pressable> {
 
   @override
   Widget build(BuildContext context) {
+    // Screen readers announce anything tappable as a button.
+    return Semantics(
+      button: widget.onTap != null,
+      enabled: widget.onTap != null,
+      child: _gesture(),
+    );
+  }
+
+  Widget _gesture() {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => _set(true),
@@ -327,15 +337,19 @@ class PinDots extends StatelessWidget {
 
 /// The K mark from the landing favicon. [progress] 0..1 pops the tile and draws the K.
 class KMark extends StatelessWidget {
-  const KMark({super.key, this.size = 72, this.progress = 1});
+  const KMark({super.key, this.size = 72, this.progress = 1, this.inverted = false});
   final double size, progress;
+
+  /// Ink tile with a yellow K, for yellow backgrounds.
+  final bool inverted;
   @override
-  Widget build(BuildContext context) => CustomPaint(size: Size.square(size), painter: _KMarkPainter(progress));
+  Widget build(BuildContext context) => CustomPaint(size: Size.square(size), painter: _KMarkPainter(progress, inverted));
 }
 
 class _KMarkPainter extends CustomPainter {
-  _KMarkPainter(this.t);
+  _KMarkPainter(this.t, [this.inverted = false]);
   final double t;
+  final bool inverted;
 
   static final Path _k = Path()
     ..moveTo(17, 13)
@@ -361,13 +375,13 @@ class _KMarkPainter extends CustomPainter {
     canvas.scale(tile);
     canvas.rotate((1 - tile) * -0.6);
     canvas.translate(-32, -32);
-    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(0, 0, 64, 64), const Radius.circular(16)), Paint()..color = K.yellow);
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(0, 0, 64, 64), const Radius.circular(16)), Paint()..color = inverted ? K.ink : K.yellow);
     canvas.restore();
 
     final draw = ((t - 0.3) / 0.45).clamp(0.0, 1.0);
     if (draw <= 0) return;
     final stroke = Paint()
-      ..color = K.ink
+      ..color = inverted ? K.yellow : K.ink
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.6
       ..strokeJoin = StrokeJoin.round;
@@ -375,9 +389,9 @@ class _KMarkPainter extends CustomPainter {
       canvas.drawPath(m.extractPath(0, m.length * Curves.easeInOut.transform(draw)), stroke);
     }
     final fill = ((t - 0.7) / 0.3).clamp(0.0, 1.0);
-    if (fill > 0) canvas.drawPath(_k, Paint()..color = K.ink.withValues(alpha: fill));
+    if (fill > 0) canvas.drawPath(_k, Paint()..color = (inverted ? K.yellow : K.ink).withValues(alpha: fill));
   }
 
   @override
-  bool shouldRepaint(_KMarkPainter old) => old.t != t;
+  bool shouldRepaint(_KMarkPainter old) => old.t != t || old.inverted != inverted;
 }

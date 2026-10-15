@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
+import '../../l10n/text.dart';
 import '../../auth/password_ui.dart';
 import '../../theme/tokens.dart';
 import '../../ui/field.dart';

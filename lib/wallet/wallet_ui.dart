@@ -1,6 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
+import '../l10n/l10n.dart';
+import '../l10n/text.dart';
+import '../security/biometric.dart';
 import '../theme/tokens.dart';
 import '../ui/flow_scaffold.dart';
 import '../ui/kit.dart';
@@ -36,7 +39,7 @@ String whenText(DateTime t, {DateTime? now}) {
   final day = DateTime(t.year, t.month, t.day);
   if (day == today) return 'Today, ${_hm(t)}';
   if (day == today.subtract(const Duration(days: 1))) return 'Yesterday, ${_hm(t)}';
-  return '${t.day} ${_months[t.month - 1]}${t.year == n.year ? '' : ' ${t.year}'}, ${_hm(t)}';
+  return '${t.day} ${tr(_months[t.month - 1])}${t.year == n.year ? '' : ' ${t.year}'}, ${_hm(t)}';
 }
 
 /// A future moment: "today at 14:05", "tomorrow at 09:00", "12 Oct at 09:00".
@@ -46,7 +49,7 @@ String untilText(DateTime t, {DateTime? now}) {
   final day = DateTime(t.year, t.month, t.day);
   if (day == today) return 'today at ${_hm(t)}';
   if (day == today.add(const Duration(days: 1))) return 'tomorrow at ${_hm(t)}';
-  return '${t.day} ${_months[t.month - 1]} at ${_hm(t)}';
+  return '${t.day} ${tr(_months[t.month - 1])} at ${_hm(t)}';
 }
 
 /// Plain screen frame for everything after sign-up: round back button, title, scrolling body.
@@ -140,7 +143,7 @@ class RoundIconButton extends StatelessWidget {
         child: Icon(icon, color: dark ? Colors.white : p.text, size: 22),
       ),
     );
-    return Semantics(button: true, label: tooltip, child: button);
+    return Semantics(button: true, label: tooltip == null ? null : tr(tooltip!), child: button);
   }
 }
 
@@ -246,17 +249,35 @@ class ActivityTile extends StatelessWidget {
 
 /// Bottom sheet asking for the transaction PIN. Returns the PIN, or null if dismissed.
 /// The app doesn't know if the PIN is 4 or 6 digits, so Confirm works at either length.
-Future<String?> askPin(BuildContext context, {required String title, String? message, String? error}) => showModalBottomSheet<String>(
-  context: context,
-  isScrollControlled: true,
-  backgroundColor: Colors.transparent,
-  builder: (_) => _PinSheet(title: title, message: message, error: error),
-);
+///
+/// With [biometric], someone who turned on fingerprint payments is asked for their fingerprint or
+/// face first, and the sheet only opens if they cancel it (with a button to try again). Not for
+/// changing the PIN, where the person must type it.
+Future<String?> askPin(BuildContext context, {required String title, String? message, String? error, bool biometric = false}) async {
+  final bio = BiometricPin.instance;
+  bio.lastWasSaved = false;
+  final useBio = biometric && await bio.enabled();
+  if (useBio && error == null) {
+    final saved = await bio.unlock(tr(title));
+    if (saved != null) {
+      bio.lastWasSaved = true;
+      return saved;
+    }
+  }
+  if (!context.mounted) return null;
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _PinSheet(title: title, message: message, error: error, biometric: useBio),
+  );
+}
 
 class _PinSheet extends StatefulWidget {
-  const _PinSheet({required this.title, this.message, this.error});
+  const _PinSheet({required this.title, this.message, this.error, this.biometric = false});
   final String title;
   final String? message, error;
+  final bool biometric;
   @override
   State<_PinSheet> createState() => _PinSheetState();
 }
@@ -267,6 +288,13 @@ class _PinSheetState extends State<_PinSheet> {
   void _type(String d) {
     if (_pin.length >= 6) return;
     setState(() => _pin += d);
+  }
+
+  Future<void> _useBiometric() async {
+    final saved = await BiometricPin.instance.unlock(tr(widget.title));
+    if (saved == null || !mounted) return;
+    BiometricPin.instance.lastWasSaved = true;
+    Navigator.of(context).pop(saved);
   }
 
   @override
@@ -317,6 +345,14 @@ class _PinSheetState extends State<_PinSheet> {
           Keypad(onDigit: _type, onBackspace: () => setState(() => _pin = _pin.isEmpty ? '' : _pin.substring(0, _pin.length - 1))),
           const SizedBox(height: 12),
           KButton(label: 'Confirm', onTap: ok ? () => Navigator.of(context).pop(_pin) : null),
+          if (widget.biometric) ...[
+            const SizedBox(height: 4),
+            TextButton.icon(
+              onPressed: _useBiometric,
+              icon: Icon(Icons.fingerprint_rounded, color: p.text),
+              label: Text('Use fingerprint or face', style: KText.body(p.text).copyWith(fontWeight: FontWeight.w700)),
+            ),
+          ],
         ],
       ),
     );

@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
+import '../l10n/l10n.dart';
+import '../l10n/text.dart';
 import '../theme/tokens.dart';
 import '../ui/kit.dart';
 import '../wallet/models.dart' show ApiException;
@@ -31,7 +33,7 @@ class _SupportButtonState extends State<SupportButton> {
         children: [
           RoundIconButton(
             icon: Icons.support_agent_rounded,
-            tooltip: n == 0 ? 'Help and support' : 'Help and support, $n new ${n == 1 ? 'reply' : 'replies'}',
+            tooltip: tr(n == 0 ? 'Help and support' : 'Help and support, $n new ${n == 1 ? 'reply' : 'replies'}'),
             onTap: () => pushScreen(context, SupportScreen(api: widget.api, txId: widget.txId)),
           ),
           if (n > 0)
@@ -133,7 +135,7 @@ class _SupportScreenState extends State<SupportScreen> {
                           if (t.unread) ...[
                             const SizedBox(width: 10),
                             Semantics(
-                              label: 'New reply',
+                              label: tr('New reply'),
                               child: Container(width: 10, height: 10, decoration: const BoxDecoration(color: K.coral, shape: BoxShape.circle)),
                             ),
                           ],
@@ -328,7 +330,7 @@ class _SupportThreadScreenState extends State<SupportThreadScreen> {
           const SizedBox(width: 10),
           Semantics(
             button: true,
-            label: 'Send message',
+            label: tr('Send message'),
             child: Pressable(
               onTap: _busy || _text.text.trim().isEmpty ? null : _send,
               child: AnimatedOpacity(
@@ -438,7 +440,7 @@ class _Composer extends StatelessWidget {
       textCapitalization: TextCapitalization.sentences,
       style: KText.body(p.text),
       decoration: InputDecoration(
-        hintText: hint,
+        hintText: tr(hint),
         hintStyle: KText.body(p.subtle),
         counterText: '',
         filled: true,
