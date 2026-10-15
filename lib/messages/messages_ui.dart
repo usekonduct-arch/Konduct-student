@@ -182,7 +182,57 @@ class _Page extends StatelessWidget {
   }
 }
 
-/// Every message from Konduct, newest first.
+/// How a kind of message looks: its icon, colour and the small label above the title.
+class _Look {
+  const _Look(this.icon, this.color, this.label);
+  final IconData icon;
+  final Color color;
+  final String label;
+
+  static _Look of(Notice n) {
+    final k = n.kind;
+    if (k == 'fare.received') return const _Look(Icons.payments_rounded, K.go, 'Payment received');
+    if (k == 'wallet.funded') return const _Look(Icons.account_balance_wallet_rounded, K.go, 'Wallet');
+    if (k == 'payout.paid') return const _Look(Icons.account_balance_rounded, K.go, 'Payout');
+    if (k == 'payout.failed') return const _Look(Icons.error_outline_rounded, K.coral, 'Payout');
+    if (k == 'dispute.update') return const _Look(Icons.support_agent_rounded, K.yellowDeep, 'Your report');
+    if (k == 'support.reply') return const _Look(Icons.chat_bubble_rounded, Color(0xFF1F6F99), 'Support');
+    if (k.startsWith('security')) return const _Look(Icons.shield_rounded, K.coral, 'Security');
+    if (n.personal) return const _Look(Icons.mark_email_unread_rounded, K.yellowDeep, 'Message for you');
+    return const _Look(Icons.campaign_rounded, K.yellowDeep, 'From Konduct');
+  }
+}
+
+const _days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const _monthsLong = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+String _fullDate(DateTime t) =>
+    '${_days[t.weekday - 1]} ${t.day} ${_monthsLong[t.month - 1]}${t.year == DateTime.now().year ? '' : ' ${t.year}'} · ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+/// "Today", "This week" or "Earlier": the heading a message sits under in the inbox.
+String _bucket(DateTime t) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  if (!t.isBefore(today)) return 'Today';
+  if (t.isAfter(today.subtract(const Duration(days: 7)))) return 'This week';
+  return 'Earlier';
+}
+
+/// The round icon in a message's colour.
+class _Badge extends StatelessWidget {
+  const _Badge(this.look, {this.size = 44});
+  final _Look look;
+  final double size;
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(color: look.color.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(size * 0.32)),
+    child: Icon(look.icon, color: look.color, size: size * 0.5),
+  );
+}
+
+/// Every message from Konduct, newest first, under Today / This week / Earlier.
 class InboxScreen extends StatefulWidget {
   const InboxScreen({super.key, required this.api, required this.actions});
   final MessagesApi api;
@@ -201,6 +251,11 @@ class _InboxScreenState extends State<InboxScreen> {
     }
   }
 
+  void _open(Notice n) {
+    widget.api.markRead(n);
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => NoticeScreen(notice: n, actions: widget.actions)));
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = Palette.of(context);
@@ -208,10 +263,25 @@ class _InboxScreenState extends State<InboxScreen> {
       stream: _notices,
       builder: (context, s) {
         _last = s.data ?? const [];
-        final unread = _last.any((n) => !n.read);
+        final unread = _last.where((n) => !n.read).length;
+        final rows = <Widget>[];
+        String? heading;
+        for (final n in _last) {
+          final b = _bucket(n.at);
+          if (b != heading) {
+            heading = b;
+            rows.add(
+              Padding(
+                padding: EdgeInsets.only(top: rows.isEmpty ? 0 : 18, bottom: 8),
+                child: Text(b.toUpperCase(), style: KText.kicker(p.subtle)),
+              ),
+            );
+          }
+          rows.add(Padding(padding: const EdgeInsets.only(bottom: 10), child: _NoticeTile(notice: n, onTap: () => _open(n))));
+        }
         return _Page(
           title: 'Notifications',
-          action: unread
+          action: unread > 0
               ? TextButton(
                   onPressed: _readAll,
                   child: Text('Mark all read', style: KText.small(p.text).copyWith(decoration: TextDecoration.underline)),
@@ -221,70 +291,27 @@ class _InboxScreenState extends State<InboxScreen> {
               ? const Center(child: CircularProgressIndicator(color: K.yellowDeep))
               : _last.isEmpty
               ? Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text('Nothing yet. Messages from the Konduct team show up here.', style: KText.body(p.subtle)),
+                  padding: const EdgeInsets.fromLTRB(20, 30, 20, 20),
+                  child: Column(
+                    children: [
+                      _Badge(const _Look(Icons.notifications_none_rounded, K.yellowDeep, ''), size: 72),
+                      const SizedBox(height: 16),
+                      Text('All quiet', style: KText.h3(p.text)),
+                      const SizedBox(height: 6),
+                      Text('Payments, replies and news from the Konduct team show up here.', textAlign: TextAlign.center, style: KText.body(p.subtle)),
+                    ],
+                  ),
                 )
-              : ListView.separated(
+              : ListView(
                   padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.paddingOf(context).bottom),
-                  itemCount: _last.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) {
-                    final n = _last[i];
-                    return Pressable(
-                      scale: 0.98,
-                      onTap: () {
-                        widget.api.markRead(n);
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => NoticeScreen(notice: n, actions: widget.actions),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: p.surface,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: n.read ? p.border : K.yellowDeep, width: n.read ? 1 : 1.6),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(color: K.yellow.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(13)),
-                              child: Icon(n.personal ? Icons.mark_email_unread_rounded : Icons.campaign_rounded, color: p.text, size: 21),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          n.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: KText.body(p.text).copyWith(fontWeight: n.read ? FontWeight.w600 : FontWeight.w800),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(_ago(n.at), style: KText.small(p.subtle).copyWith(fontSize: 11.5)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(n.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: KText.small(p.subtle)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                  children: [
+                    if (unread > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Text('$unread unread', style: KText.small(p.subtle)),
                       ),
-                    );
-                  },
+                    ...rows,
+                  ],
                 ),
         );
       },
@@ -292,32 +319,206 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 }
 
-/// One message in full.
-class NoticeScreen extends StatelessWidget {
-  const NoticeScreen({super.key, required this.notice, required this.actions});
+class _NoticeTile extends StatelessWidget {
+  const _NoticeTile({required this.notice, required this.onTap});
   final Notice notice;
-  final AppActions actions;
+  final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
     final p = Palette.of(context);
     final n = notice;
-    return _Page(
-      title: n.title,
-      child: ListView(
-        padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + MediaQuery.paddingOf(context).bottom),
-        children: [
-          Text(_ago(n.at), style: KText.small(p.subtle)),
-          const SizedBox(height: 14),
-          if (n.imageUrl != null) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: AspectRatio(aspectRatio: 2, child: _NetImage(n.imageUrl!)),
-            ),
-            const SizedBox(height: 16),
-          ],
-          SelectableText(n.body, style: KText.body(p.text)),
-          if (n.link != null) ...[const SizedBox(height: 22), KButton(label: n.linkLabel ?? 'Open', onTap: () => openLink(context, n.link, actions))],
-        ],
+    final look = _Look.of(n);
+    return Semantics(
+      button: true,
+      label: '${n.read ? '' : 'Unread. '}${look.label}: ${n.title}. ${_ago(n.at)}',
+      excludeSemantics: true,
+      child: Pressable(
+        scale: 0.98,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          decoration: BoxDecoration(
+            color: n.read ? p.surface : look.color.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: n.read ? p.border : look.color.withValues(alpha: 0.45)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Badge(look),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(look.label.toUpperCase(), style: KText.kicker(look.color).copyWith(fontSize: 10)),
+                        ),
+                        Text(_ago(n.at), style: KText.small(p.subtle).copyWith(fontSize: 11.5)),
+                        if (!n.read) ...[
+                          const SizedBox(width: 6),
+                          Container(width: 8, height: 8, decoration: const BoxDecoration(color: K.coral, shape: BoxShape.circle)),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      n.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: KText.body(p.text).copyWith(fontWeight: n.read ? FontWeight.w600 : FontWeight.w800),
+                    ),
+                    if (n.body.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(n.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: KText.small(p.subtle)),
+                    ],
+                  ],
+                ),
+              ),
+              if (n.imageUrl != null) ...[
+                const SizedBox(width: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(width: 56, height: 56, child: _NetImage(n.imageUrl!)),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One message in full: a coloured header with what kind of message it is and when it came,
+/// the picture, the text, and its button.
+class NoticeScreen extends StatelessWidget {
+  const NoticeScreen({super.key, required this.notice, required this.actions});
+  final Notice notice;
+  final AppActions actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final n = notice;
+    final look = _Look.of(n);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: p.bg,
+        body: SafeArea(
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(20, 8, 20, 28 + MediaQuery.paddingOf(context).bottom),
+            children: [
+              Row(
+                children: [
+                  Semantics(
+                    button: true,
+                    label: 'Back',
+                    child: Pressable(
+                      onTap: () => Navigator.of(context).maybePop(),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(color: p.surface, shape: BoxShape.circle, border: Border.all(color: p.border)),
+                        child: Icon(Icons.arrow_back_rounded, color: p.text, size: 22),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Entrance(
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [look.color.withValues(alpha: dark ? 0.28 : 0.2), look.color.withValues(alpha: dark ? 0.1 : 0.06)],
+                    ),
+                    border: Border.all(color: look.color.withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(color: look.color, borderRadius: BorderRadius.circular(17)),
+                            child: Icon(look.icon, color: Colors.white, size: 27),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(look.label.toUpperCase(), style: KText.kicker(p.text)),
+                                const SizedBox(height: 3),
+                                Text(_ago(n.at), style: KText.small(p.subtle)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      Text(n.title, style: KText.title(p.text).copyWith(fontSize: 28, height: 1.1)),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Icon(Icons.schedule_rounded, size: 15, color: p.subtle),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text(_fullDate(n.at), style: KText.small(p.subtle))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (n.imageUrl != null) ...[
+                const SizedBox(height: 16),
+                Entrance(
+                  delay: const Duration(milliseconds: 80),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: AspectRatio(aspectRatio: 2, child: _NetImage(n.imageUrl!)),
+                  ),
+                ),
+              ],
+              if (n.body.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Entrance(
+                  delay: const Duration(milliseconds: 120),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                    decoration: BoxDecoration(color: p.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: p.border)),
+                    child: SelectableText(n.body, style: KText.body(p.text).copyWith(fontSize: 16.5, height: 1.55)),
+                  ),
+                ),
+              ],
+              if (n.link != null) ...[
+                const SizedBox(height: 20),
+                KButton(label: n.linkLabel ?? 'Open', onTap: () => openLink(context, n.link, actions)),
+              ],
+              const SizedBox(height: 26),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const KMark(size: 22),
+                  const SizedBox(width: 8),
+                  Text(n.personal ? 'Sent to you by Konduct' : 'From the Konduct team', style: KText.small(p.subtle)),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

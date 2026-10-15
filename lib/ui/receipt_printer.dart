@@ -1,11 +1,17 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
+import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../theme/tokens.dart';
 import 'kit.dart';
@@ -67,13 +73,17 @@ class Slip {
 
 /// A little POS terminal that prints [slip] onto thermal paper: it "connects" while [slip]
 /// loads, feeds the paper out line by line with the printer's buzz, tears it off and stamps it.
-/// Tap the printer to print it again. With reduced motion the receipt simply appears.
+/// Tap the printer to print it again, or share the slip as an image or a PDF. With reduced
+/// motion the receipt simply appears.
 class ReceiptPrinter extends StatefulWidget {
-  const ReceiptPrinter({super.key, required this.slip, this.onPrinted});
+  const ReceiptPrinter({super.key, required this.slip, this.onPrinted, this.fileName = 'konduct-receipt'});
 
   /// Must not throw: give back a receipt that says what couldn't be checked instead.
   final Future<Slip> slip;
   final VoidCallback? onPrinted;
+
+  /// The shared file's name, without extension (for example "konduct-receipt-KD-4MX2Q9").
+  final String fileName;
 
   @override
   State<ReceiptPrinter> createState() => _ReceiptPrinterState();
@@ -95,6 +105,8 @@ class _ReceiptPrinterState extends State<ReceiptPrinter> with TickerProviderStat
   AudioPlayer? _player;
   Slip? _slip;
   int _lastStep = -1;
+  final _paperKey = GlobalKey();
+  bool _sharing = false;
 
   @override
   void initState() {
@@ -102,6 +114,10 @@ class _ReceiptPrinterState extends State<ReceiptPrinter> with TickerProviderStat
     _feed.addListener(_onFeed);
     _feed.addStatusListener((s) {
       if (s == AnimationStatus.completed) _tear();
+    });
+    // Sharing waits for the stamp to land, so the picture has it.
+    _settle.addStatusListener((s) {
+      if (s == AnimationStatus.completed && mounted) setState(() {});
     });
     _load();
   }
@@ -182,6 +198,60 @@ class _ReceiptPrinterState extends State<ReceiptPrinter> with TickerProviderStat
     if (_muted) _player?.stop().catchError((_) {});
   }
 
+  /// Image or PDF? Then renders the slip and opens the phone's share sheet (WhatsApp, Drive, email...).
+  Future<void> _share() async {
+    final kind = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _ShareSheet(),
+    );
+    if (kind == null || !mounted) return;
+    setState(() => _sharing = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final box = context.findRenderObject() as RenderBox?;
+    try {
+      final pdf = kind == 'pdf';
+      final shot = await _snapshot(background: pdf ? Colors.white : K.ink);
+      final bytes = pdf ? await receiptPdf(shot.png, shot.width, shot.height, title: _slip?.heading ?? 'Receipt') : shot.png;
+      final dir = await getTemporaryDirectory();
+      final name = widget.fileName.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '-');
+      final file = File('${dir.path}/$name.${pdf ? 'pdf' : 'png'}');
+      await file.writeAsBytes(bytes, flush: true);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: pdf ? 'application/pdf' : 'image/png')],
+          subject: 'Konduct receipt',
+          sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
+        ),
+      );
+    } catch (_) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Couldn\'t share the receipt. Try again.')));
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
+  }
+
+  /// The printed slip as a PNG, sharp (3x) and on a plain [background] with a margin, so the torn
+  /// edges show.
+  Future<({Uint8List png, int width, int height})> _snapshot({required Color background}) async {
+    const ratio = 3.0;
+    final boundary = _paperKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    final paper = await boundary.toImage(pixelRatio: ratio);
+    const margin = 24 * ratio;
+    final w = paper.width + 2 * margin, h = paper.height + 2 * margin;
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder)
+      ..drawRect(Rect.fromLTWH(0, 0, w, h), Paint()..color = background)
+      ..drawImage(paper, const Offset(margin, margin), Paint());
+    final image = await recorder.endRecording().toImage(w.round(), h.round());
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    paper.dispose();
+    image.dispose();
+    return (png: data!.buffer.asUint8List(), width: w.round(), height: h.round());
+  }
+
   /// How far the paper is out of the slot: it moves in short jolts, one per printed line.
   double get _reveal {
     final t = _feed.value * _steps;
@@ -204,6 +274,7 @@ class _ReceiptPrinterState extends State<ReceiptPrinter> with TickerProviderStat
           muted: _muted,
           onMute: _toggleMute,
           onReprint: slip == null || _feed.isAnimating ? null : _print,
+          onShare: slip == null || _feed.isAnimating || _settle.isAnimating || _sharing ? null : _share,
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -225,7 +296,7 @@ class _ReceiptPrinterState extends State<ReceiptPrinter> with TickerProviderStat
                               child: Transform.translate(offset: Offset(0, drop), child: child),
                             );
                           },
-                          child: _Paper(slip: slip, stamp: _settle),
+                          child: RepaintBoundary(key: _paperKey, child: _Paper(slip: slip, stamp: _settle)),
                         ),
                       ),
                       // The dark mouth of the slot the paper comes out of.
@@ -256,12 +327,12 @@ class _ReceiptPrinterState extends State<ReceiptPrinter> with TickerProviderStat
 }
 
 class _Head extends StatelessWidget {
-  const _Head({required this.state, required this.blink, required this.busy, required this.muted, required this.onMute, this.onReprint});
+  const _Head({required this.state, required this.blink, required this.busy, required this.muted, required this.onMute, this.onReprint, this.onShare});
   final String state;
   final Animation<double> blink;
   final bool busy, muted;
   final VoidCallback onMute;
-  final VoidCallback? onReprint;
+  final VoidCallback? onReprint, onShare;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -291,7 +362,7 @@ class _Head extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Text('KONDUCT POS', style: KText.kicker(K.muteDark).copyWith(fontSize: 10.5)),
+              Flexible(child: Text('KONDUCT POS', maxLines: 1, overflow: TextOverflow.clip, softWrap: false, style: KText.kicker(K.muteDark).copyWith(fontSize: 10.5))),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -301,13 +372,21 @@ class _Head extends StatelessWidget {
               const Spacer(),
               IconButton(
                 tooltip: muted ? 'Turn printer sound on' : 'Mute printer sound',
+                visualDensity: VisualDensity.compact,
                 onPressed: onMute,
                 icon: Icon(muted ? Icons.volume_off_rounded : Icons.volume_up_rounded, color: K.muteDark, size: 20),
               ),
               IconButton(
                 tooltip: 'Print again',
+                visualDensity: VisualDensity.compact,
                 onPressed: onReprint,
                 icon: Icon(Icons.print_rounded, color: onReprint == null ? K.mute : K.paper, size: 20),
+              ),
+              IconButton(
+                tooltip: 'Share receipt',
+                visualDensity: VisualDensity.compact,
+                onPressed: onShare,
+                icon: Icon(Icons.share_rounded, color: onShare == null ? K.mute : K.yellow, size: 20),
               ),
             ],
           ),
@@ -483,6 +562,81 @@ class _Paper extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A receipt image as a one-page PDF the width of a till roll (80 mm), as tall as the slip.
+Future<Uint8List> receiptPdf(Uint8List png, int width, int height, {required String title}) {
+  final pageWidth = 80 * PdfPageFormat.mm;
+  final doc = pw.Document(title: 'Konduct receipt: $title', author: 'Konduct', creator: 'Konduct');
+  doc.addPage(
+    pw.Page(
+      pageFormat: PdfPageFormat(pageWidth, pageWidth * height / width),
+      build: (_) => pw.Image(pw.MemoryImage(png), fit: pw.BoxFit.fill),
+    ),
+  );
+  return doc.save();
+}
+
+/// "Share as an image or a PDF?" Returns 'image' or 'pdf'.
+class _ShareSheet extends StatelessWidget {
+  const _ShareSheet();
+
+  Widget _option(BuildContext context, {required String value, required IconData icon, required String title, required String detail}) {
+    final p = Palette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Pressable(
+        scale: 0.98,
+        onTap: () => Navigator.of(context).pop(value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: p.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: p.border),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: p.text),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: KText.body(p.text).copyWith(fontWeight: FontWeight.w700)),
+                    Text(detail, style: KText.small(p.subtle)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return Container(
+      decoration: BoxDecoration(color: p.bg, borderRadius: const BorderRadius.vertical(top: Radius.circular(28))),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, 16 + MediaQuery.paddingOf(context).bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(width: 44, height: 5, decoration: BoxDecoration(color: p.border, borderRadius: BorderRadius.circular(3))),
+          ),
+          const SizedBox(height: 18),
+          Text('Share this receipt', style: KText.h3(p.text)),
+          const SizedBox(height: 14),
+          _option(context, value: 'image', icon: Icons.image_rounded, title: 'As an image', detail: 'A picture for WhatsApp or your gallery'),
+          _option(context, value: 'pdf', icon: Icons.picture_as_pdf_rounded, title: 'As a PDF', detail: 'For email, printing or your records'),
+        ],
       ),
     );
   }

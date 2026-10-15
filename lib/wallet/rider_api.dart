@@ -29,6 +29,9 @@ abstract class RiderApi {
   /// Fares and top-ups, newest first.
   Stream<List<Activity>> activity({int limit = 30});
 
+  /// The rider's fares that went ahead in one calendar month, newest first (for Wrapped).
+  Future<List<Activity>> faresIn(DateTime month);
+
   /// config/switches: true while Konduct has paused payments.
   Stream<bool> paymentsPaused();
 

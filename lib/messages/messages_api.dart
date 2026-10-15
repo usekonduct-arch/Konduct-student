@@ -138,6 +138,37 @@ abstract class MessagesApi {
 
   /// What this phone has already shown, so a popup never shows twice.
   final seen = SeenStore();
+
+  /// Konduct's social handles and hashtag, for the caption when someone shares a ride or their
+  /// monthly Wrapped (config/brand, set in the console).
+  Stream<Brand> brand() => Stream.value(const Brand());
+}
+
+/// Konduct's accounts to tag when sharing. Empty handles are left out of captions.
+class Brand {
+  const Brand({this.instagram = '', this.x = '', this.tiktok = '', this.facebook = '', this.hashtag = '', this.website = ''});
+  final String instagram, x, tiktok, facebook, hashtag, website;
+
+  factory Brand.fromMap(Map<String, dynamic>? m) => Brand(
+    instagram: m?['instagram'] as String? ?? '',
+    x: m?['x'] as String? ?? '',
+    tiktok: m?['tiktok'] as String? ?? '',
+    facebook: m?['facebook'] as String? ?? '',
+    hashtag: m?['hashtag'] as String? ?? '',
+    website: m?['website'] as String? ?? '',
+  );
+
+  /// The handles to tag, each once, in the order people are most likely to post.
+  List<String> get tags => {instagram, x, tiktok, facebook}.where((h) => h.isNotEmpty).toList();
+
+  /// The hashtag, #RideKonduct until one is set in the console.
+  String get tag => hashtag.isEmpty ? '#RideKonduct' : hashtag;
+
+  /// The handles and hashtag printed at the bottom of a share card.
+  String get cardTags => [...tags, tag].join(' ');
+
+  /// [lead], then the tags, the hashtag and the website.
+  String caption(String lead) => [lead, ...tags, tag, if (website.isNotEmpty) website].join(' ');
 }
 
 /// A small set of ids kept on the phone (shared_preferences), falling back to memory when the

@@ -8,6 +8,7 @@ import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'rate_sheet.dart';
+import 'wrapped_screen.dart';
 import '../../support/support_api.dart';
 import '../../support/support_screens.dart';
 
@@ -140,7 +141,11 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
             ),
           ),
           const SizedBox(height: 14),
-          if (!reversed && widget.justPaid) _WrongVehicle(api: widget.api, txId: widget.txId),
+          if (!reversed && widget.justPaid) ...[
+            RideShareCard(api: widget.api, trip: widget.tripRoute, at: widget.at),
+            const SizedBox(height: 14),
+            _WrongVehicle(api: widget.api, txId: widget.txId),
+          ],
           if (!reversed) RideRatingCard(api: widget.api, txId: widget.txId),
           if (!reversed) FareReportLink(api: widget.api, txId: widget.txId),
         ],

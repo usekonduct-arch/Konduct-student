@@ -19,6 +19,7 @@ import 'settings_screen.dart';
 import 'top_up_screen.dart';
 import 'transaction_screen.dart';
 import 'withdraw_screen.dart';
+import 'wrapped_screen.dart';
 import '../../support/support_screens.dart';
 
 /// The rider's home: balance, top up, scan to pay, recent activity.
@@ -41,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // A second listener for the "rate your ride" prompt (a stream can only be listened to once).
   late Stream<List<Activity>> _rateable;
   late final AppLifecycleListener _lifecycle;
+  Future<bool> _wrappedReady = Future.value(false);
   bool _hidden = false;
   // A top-up is still waiting for Bachs; checked again whenever the app comes back.
   bool _topUpWaiting = false;
@@ -51,6 +53,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _listen();
+    // The first week of a month: last month's Wrapped, if there were rides to wrap.
+    final now = DateTime.now();
+    if (now.day <= 7) _wrappedReady = api.faresIn(DateTime(now.year, now.month - 1)).then((f) => f.isNotEmpty, onError: (_) => false);
     _lifecycle = AppLifecycleListener(onResume: () => _topUpWaiting ? _refresh(quiet: true) : null);
   }
 
@@ -172,6 +177,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           StreamBuilder<List<Activity>>(
                             stream: _rateable,
                             builder: (_, s) => _RatePrompt(api: api, fares: s.data ?? const []),
+                          ),
+                          FutureBuilder<bool>(
+                            future: _wrappedReady,
+                            builder: (_, w) => w.data == true
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 14),
+                                    child: WrappedBanner(api: api, firstName: widget.session.firstName),
+                                  )
+                                : const SizedBox.shrink(),
                           ),
                           AdCarousel(api: api.messages, actions: _actions, padding: const EdgeInsets.only(top: 18)),
                           StreamBuilder<List<Park>>(

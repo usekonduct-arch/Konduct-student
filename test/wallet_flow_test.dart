@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:konduct_student/auth/auth_repository.dart';
 import 'package:konduct_student/theme/tokens.dart';
@@ -182,6 +185,82 @@ void main() {
     expect(find.text('OS 117 EDE'), findsOneWidget);
     expect(find.text('VERIFIED'), findsOneWidget);
     expect(find.textContaining('LEDGER '), findsOneWidget);
+    await done(t);
+  });
+
+  testWidgets('a receipt shares as a PNG image or a PDF', (t) async {
+    final tmp = Directory.systemTemp.createTempSync('konduct_share');
+    final shared = <Map<Object?, Object?>>[];
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (_) async => tmp.path);
+    messenger.setMockMethodCallHandler(const MethodChannel('dev.fluttercommunity.plus/share'), (call) async {
+      shared.add(call.arguments as Map<Object?, Object?>);
+      return 'dev.fluttercommunity.plus/share/unavailable';
+    });
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), null);
+      messenger.setMockMethodCallHandler(const MethodChannel('dev.fluttercommunity.plus/share'), null);
+    });
+
+    await openHome(t);
+    final ride = find.descendant(of: find.byType(ActivityTile), matching: find.text('Hostels → Main gate'));
+    await t.ensureVisible(ride);
+    await settle(t, 300);
+    await t.tap(ride);
+    await settle(t, 6000);
+
+    for (final (option, ext, magic) in [('As an image', 'png', [0x89, 0x50, 0x4E, 0x47]), ('As a PDF', 'pdf', [0x25, 0x50, 0x44, 0x46])]) {
+      await t.tap(find.byTooltip('Share receipt'));
+      await settle(t, 700);
+      expect(find.text('Share this receipt'), findsOneWidget);
+      await t.tap(find.text(option));
+      // Rendering, encoding and writing the file is real work: let it run outside fake time.
+      for (var i = 0; i < 20 && shared.length < (ext == 'png' ? 1 : 2); i++) {
+        await t.runAsync(() => Future.delayed(const Duration(milliseconds: 150)));
+        await t.pump();
+      }
+      final paths = (shared.last['paths'] as List).cast<String>();
+      expect(paths.single, endsWith('konduct-receipt-KD-4MX2Q9.$ext'));
+      expect(File(paths.single).readAsBytesSync().take(4), magic);
+      expect((shared.last['mimeTypes'] as List).single, ext == 'png' ? 'image/png' : 'application/pdf');
+    }
+    await done(t);
+    tmp.deleteSync(recursive: true);
+  });
+
+  testWidgets('after paying, a rider can share that they ride with Konduct, tagged', (t) async {
+    await openHome(t);
+    await scanSample(t);
+    await t.tap(find.text('Pay ₦200'));
+    await settle(t, 2000);
+    await t.ensureVisible(find.text('Tell your friends'));
+    await t.tap(find.text('Tell your friends'));
+    await settle(t, 1200);
+    expect(find.text('JUST RODE WITH KONDUCT'), findsOneWidget);
+    expect(find.textContaining('#RideKonduct'), findsWidgets);
+    expect(find.text('Share'), findsOneWidget);
+    await done(t);
+  });
+
+  testWidgets('Konduct Wrapped plays a month as a story and ends on a card to share', (t) async {
+    await openHome(t);
+    await t.tap(find.bySemanticsLabel('Account'));
+    await settle(t, 900);
+    await t.ensureVisible(find.text('Konduct Wrapped'));
+    await t.tap(find.text('Konduct Wrapped'));
+    await settle(t, 900);
+    await t.tap(find.text('Your latest Wrapped'));
+    await settle(t, 1500);
+    expect(find.text('KONDUCT WRAPPED'), findsOneWidget);
+    await t.tapAt(const Offset(350, 400));
+    await settle(t, 800);
+    expect(find.text('rides with Konduct'), findsOneWidget);
+    for (var i = 0; i < 12 && find.text('Share my Wrapped').evaluate().isEmpty; i++) {
+      await t.tapAt(const Offset(350, 400));
+      await settle(t, 800);
+    }
+    expect(find.text('Share my Wrapped'), findsOneWidget);
+    expect(find.text('RIDER TYPE'), findsOneWidget); // a tile on the summary card
     await done(t);
   });
 

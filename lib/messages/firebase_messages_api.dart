@@ -19,6 +19,9 @@ class FirebaseMessagesApi extends MessagesApi {
   String get _uid => FirebaseAuth.instance.currentUser!.uid;
 
   @override
+  Stream<Brand> brand() => _db.doc('config/brand').snapshots().map((s) => Brand.fromMap(s.data())).handleError((_) {});
+
+  @override
   Stream<List<Notice>> notices() {
     final personal = _db
         .collection('users/$_uid/notifications')

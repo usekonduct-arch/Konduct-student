@@ -21,6 +21,9 @@ dependencies:
   firebase_messaging: ^16.7.0
   shared_preferences: ^2.5.5
   flutter_tts: ^4.2.5
+  share_plus: ^13.3.1
+  pdf: ^3.12.0
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:
@@ -58,3 +61,8 @@ flutter:
           weight: 500
         - asset: assets/fonts/JetBrainsMono-700.ttf
           weight: 700
+
+dependency_overrides:
+  # pdf 3.12 keeps archive below 4.1, but image 4.11.0 calls an archive 4.4 API while still
+  # allowing 4.0, so it doesn't compile. Remove once pdf can move to 3.13+ (needs Dart 3.12).
+  image: 4.10.2

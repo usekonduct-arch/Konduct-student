@@ -101,7 +101,11 @@ class _TransactionScreenState extends State<TransactionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ReceiptPrinter(slip: _slip, onPrinted: () => setState(() => _printed = true)),
+          ReceiptPrinter(
+            slip: _slip,
+            fileName: 'konduct-receipt-${_a.reference.isNotEmpty ? _a.reference : _a.id}',
+            onPrinted: () => setState(() => _printed = true),
+          ),
           const SizedBox(height: 18),
           AnimatedOpacity(
             opacity: _printed ? 1 : 0,

@@ -12,6 +12,7 @@ import '../wallet_ui.dart';
 import 'bank_account_screen.dart';
 import '../../support/support_screens.dart';
 import 'password_screen.dart';
+import 'wrapped_screen.dart';
 
 /// Profile, funding code, PIN, account lock and sign out.
 class SettingsScreen extends StatefulWidget {
@@ -143,6 +144,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
               const SizedBox(height: 22),
+              Text('YOUR MONTHS', style: KText.kicker(p.subtle)),
+              const SizedBox(height: 8),
+              _action(
+                context,
+                Icons.auto_awesome_rounded,
+                'Konduct Wrapped',
+                subtitle: 'Your month in rides, to look back on and share',
+                onTap: () => pushScreen(context, WrappedMonthsScreen(api: widget.api, firstName: widget.session.firstName)),
+              ),
+              const SizedBox(height: 14),
               Text('MONEY', style: KText.kicker(p.subtle)),
               const SizedBox(height: 8),
               _action(

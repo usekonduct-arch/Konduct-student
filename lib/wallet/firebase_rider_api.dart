@@ -106,6 +106,20 @@ class FirebaseRiderApi implements RiderApi {
     ]).map((lists) => (lists.expand((l) => l).toList()..sort((x, y) => y.at.compareTo(x.at))).take(limit).toList());
   }
 
+  @override
+  Future<List<Activity>> faresIn(DateTime month) async {
+    final start = DateTime(month.year, month.month), end = DateTime(month.year, month.month + 1);
+    final q = await _db
+        .collection('transactions')
+        .where('payerUid', isEqualTo: _uid)
+        .where('createdAtMs', isGreaterThanOrEqualTo: start.millisecondsSinceEpoch)
+        .where('createdAtMs', isLessThan: end.millisecondsSinceEpoch)
+        .orderBy('createdAtMs', descending: true)
+        .limit(1000)
+        .get();
+    return q.docs.map((d) => _fare(d.id, d.data())).where((a) => a.status == 'completed').toList();
+  }
+
   Activity _withdrawal(QueryDocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data();
     return Activity(

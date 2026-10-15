@@ -82,6 +82,34 @@ class DemoRiderApi implements RiderApi {
   @override
   Stream<List<Activity>> activity({int limit = 30}) => _live(() => _items.take(limit).toList());
 
+  /// A believable month: 14 to 24 rides on three routes with three drivers, some with friends.
+  @override
+  Future<List<Activity>> faresIn(DateTime month) async {
+    await _lag(300);
+    final start = DateTime(month.year, month.month);
+    if (start.isAfter(DateTime.now())) return const [];
+    final routes = [const TripRoute(from: 'Hostels', to: 'Main gate', etaMin: 9), _trip, const TripRoute(from: 'Main gate', to: 'Faculty of Science', etaMin: 8)];
+    const drivers = [('Kemi', 'OS 117 EDE'), ('Tunde', 'OS 482 KJA'), ('Sola', 'OS 905 IWO')];
+    final n = 14 + (month.month * 7 + month.year) % 11;
+    final days = DateTime(month.year, month.month + 1, 0).day;
+    final out = <Activity>[
+      for (var i = 0; i < n; i++)
+        Activity(
+          id: 'fare_demo_${month.month}_$i',
+          kind: ActivityKind.fare,
+          amountKobo: 20000 * (i % 5 == 0 ? 2 : 1),
+          passengers: i % 5 == 0 ? 2 : 1,
+          at: start.add(Duration(days: (i * 3 + month.month) % days, hours: i % 3 == 0 ? 7 : (i % 3 == 1 ? 8 : 17), minutes: (i * 13) % 60)),
+          status: 'completed',
+          reference: 'KD-DEMO$i',
+          plate: drivers[i % 4 == 0 ? 1 : (i % 3 == 0 ? 2 : 0)].$2,
+          driverName: drivers[i % 4 == 0 ? 1 : (i % 3 == 0 ? 2 : 0)].$1,
+          tripRoute: routes[i % 2 == 0 ? 0 : (i % 3 == 0 ? 2 : 1)],
+        ),
+    ];
+    return out.where((a) => a.at.isBefore(DateTime.now())).toList()..sort((a, b) => b.at.compareTo(a.at));
+  }
+
   @override
   Stream<bool> paymentsPaused() => Stream.value(false);
 
