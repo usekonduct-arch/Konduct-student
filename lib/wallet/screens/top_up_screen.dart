@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
 import '../../theme/tokens.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
+import '../../ui/web_screen.dart';
 import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
@@ -12,8 +13,9 @@ import '../../support/support_screens.dart';
 const _minKobo = 20000; // ₦200, as the backend's RULES.minTopUpKobo
 const _maxKobo = 5000000; // ₦50,000
 
-/// Pick an amount, then pay on Bachs's page (card or bank transfer). The wallet is credited when
-/// Bachs confirms the payment to the backend, not when the page closes.
+/// Pick an amount, then pay on Bachs's page (card or bank transfer), inside the app. The wallet
+/// is credited when Bachs confirms the payment to the backend, not when the page closes; once
+/// it does close we ask the backend to check with Bachs straight away instead of waiting.
 class TopUpScreen extends StatefulWidget {
   const TopUpScreen({super.key, required this.api, this.suggestKobo});
   final RiderApi api;
@@ -30,6 +32,7 @@ class _TopUpScreenState extends State<TopUpScreen> {
   // One key per amount, so a double tap or a retry opens the same checkout.
   String _key = newIdempotencyKey();
   bool _busy = false;
+  bool _confirming = false;
   String? _error;
 
   String _initial() {
@@ -53,6 +56,9 @@ class _TopUpScreenState extends State<TopUpScreen> {
     _set(_digits == '0' ? d : _digits + d);
   }
 
+  /// Bachs sends the rider back to our return URL: ?topup=tu_...&outcome=success|cancel.
+  static bool _isReturn(Uri u) => (u.queryParameters['topup'] ?? '').startsWith('tu_') && u.queryParameters.containsKey('outcome');
+
   Future<void> _go() async {
     setState(() {
       _busy = true;
@@ -60,18 +66,51 @@ class _TopUpScreenState extends State<TopUpScreen> {
     });
     try {
       final url = await widget.api.createTopUp(amountKobo: _kobo, idempotencyKey: _key);
-      if (url.isNotEmpty) {
-        final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView);
-        if (!opened) throw const ApiException('no_browser', 'We couldn\'t open the payment page. Try again.');
+      if (!mounted) return;
+      if (url.isEmpty) {
+        // Demo mode: nothing to open, the "payment" goes through by itself.
+        Navigator.of(context).pop();
+        showSnack(context, 'We\'ll add ${naira(_kobo)} as soon as the payment goes through.');
+        return;
       }
+      final back = await openWeb(context, url, title: 'Pay ${naira(_kobo)}', closeWhen: _isReturn);
+      if (!mounted) return;
+      if (back?.queryParameters['outcome'] == 'cancel') {
+        Navigator.of(context).pop();
+        showSnack(context, 'Payment cancelled. You weren\'t charged.');
+        return;
+      }
+      setState(() => _confirming = true);
+      final added = await _confirm();
       if (!mounted) return;
       Navigator.of(context).pop();
-      showSnack(context, 'We\'ll add ${naira(_kobo)} as soon as the payment goes through.');
+      if (added) HapticFeedback.mediumImpact();
+      showSnack(context, added ? '${naira(_kobo)} added to your wallet.' : 'We\'ll add ${naira(_kobo)} as soon as Bachs confirms. Pull down on Home to check.');
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _confirming = false;
+        });
+      }
     }
+  }
+
+  /// Bachs can take a few seconds to mark a payment paid; ask a few times before giving up.
+  Future<bool> _confirm() async {
+    for (final wait in const [0, 2, 3, 4]) {
+      if (wait > 0) await Future.delayed(Duration(seconds: wait));
+      try {
+        final r = await widget.api.refreshTopUps();
+        if (r.credited > 0) return true;
+        if (r.checked == 0) return true; // the webhook got there first
+      } on ApiException {
+        return false;
+      }
+    }
+    return false;
   }
 
   @override
@@ -89,6 +128,11 @@ class _TopUpScreenState extends State<TopUpScreen> {
         children: [
           Keypad(onDigit: _type, onBackspace: () => _set(_digits.length <= 1 ? '0' : _digits.substring(0, _digits.length - 1)), enabled: !_busy),
           const SizedBox(height: 12),
+          if (_confirming)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text('Confirming your payment with Bachs…', textAlign: TextAlign.center, style: KText.small(p.subtle)),
+            ),
           KButton(label: _valid ? 'Pay ${naira(_kobo)}' : 'Pay', loading: _busy, onTap: _valid ? _go : null),
         ],
       ),

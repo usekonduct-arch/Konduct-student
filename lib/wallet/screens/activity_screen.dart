@@ -4,7 +4,8 @@ import '../../theme/tokens.dart';
 import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
-import 'receipt_screen.dart';
+import 'home_screen.dart';
+import 'transaction_screen.dart';
 import '../../support/support_screens.dart';
 
 /// Every fare and top-up, newest first.
@@ -17,7 +18,12 @@ class ActivityScreen extends StatefulWidget {
 }
 
 class _ActivityScreenState extends State<ActivityScreen> {
-  late final _items = widget.api.activity(limit: 100);
+  late Stream<List<Activity>> _items = widget.api.activity(limit: 100);
+
+  Future<void> _refresh() async {
+    await refreshWallet(context, widget.api);
+    if (mounted) setState(() => _items = widget.api.activity(limit: 100));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +32,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
       trailing: SupportButton(api: widget.api.support),
       kicker: 'Activity',
       title: 'Your rides and top-ups',
+      onRefresh: _refresh,
       child: StreamBuilder<List<Activity>>(
         stream: _items,
         builder: (_, s) {
@@ -61,12 +68,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
               );
               lastDay = day;
             }
-            children.add(
-              ActivityTile(
-                a: a,
-                onTap: a.isFare ? () => pushScreen(context, ReceiptScreen.fromActivity(api: widget.api, activity: a)) : null,
-              ),
-            );
+            children.add(ActivityTile(a: a, onTap: () => openActivity(context, widget.api, a)));
           }
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: children);
         },

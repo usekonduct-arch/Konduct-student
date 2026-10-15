@@ -242,6 +242,22 @@ class DemoRiderApi implements RiderApi {
   }
 
   @override
+  Future<TopUpCheck> refreshTopUps() async {
+    await _lag(500);
+    return TopUpCheck(checked: _items.where((a) => a.kind == ActivityKind.topUp && a.pending).length, credited: 0);
+  }
+
+  @override
+  Future<ReceiptProof> receiptProof({required ActivityKind kind, required String id}) async {
+    await _lag(400);
+    final a = _items.where((x) => x.id == id).firstOrNull;
+    if (a == null || (a.kind == ActivityKind.topUp && !a.credited)) return const ReceiptProof(verified: false, posted: false);
+    // A made-up but stable fingerprint; there is no public receipt page in demo mode.
+    final hash = id.codeUnits.fold<int>(7, (h, c) => (h * 31 + c) & 0x7fffffff).toRadixString(16).padLeft(8, '0') * 8;
+    return ReceiptProof(verified: true, posted: true, hash: hash, postedAt: a.at, reversed: a.reversed);
+  }
+
+  @override
   Future<void> openDispute({required String txId, required DisputeReason reason, String note = ''}) async {
     await _lag();
     if (_disputes.containsKey(txId)) throw const ApiException('dispute_exists', 'You\'ve already reported this payment. We\'ll update you.');

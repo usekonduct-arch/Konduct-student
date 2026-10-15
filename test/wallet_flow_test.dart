@@ -172,6 +172,58 @@ void main() {
     await done(t);
   });
 
+  testWidgets('tapping a ride in the history prints its receipt, verified against the ledger', (t) async {
+    await openHome(t);
+    await t.tap(find.descendant(of: find.byType(ActivityTile), matching: find.text('Hostels → Main gate')));
+    await settle(t, 900);
+    expect(find.text('CONNECTING'), findsOneWidget);
+    await settle(t, 4500);
+    expect(find.text('Ride fare'), findsWidgets);
+    expect(find.text('KD-4MX2Q9'), findsOneWidget);
+    expect(find.text('OS 117 EDE'), findsOneWidget);
+    expect(find.text('VERIFIED'), findsOneWidget);
+    expect(find.textContaining('LEDGER '), findsOneWidget);
+    await done(t);
+  });
+
+  testWidgets('a pending top-up receipt reprints by itself once the payment lands', (t) async {
+    await openHome(t);
+    await t.tap(find.text('Top up'));
+    await settle(t, 900);
+    await t.tap(find.text('Pay ₦1,000'));
+    await settle(t, 1000);
+    await t.tap(find.descendant(of: find.byType(ActivityTile), matching: find.text('Wallet top-up')));
+    await settle(t, 600);
+    expect(find.text('Top-up pending'), findsOneWidget);
+    await settle(t, 6000);
+    expect(find.text('Wallet top-up'), findsWidgets);
+    expect(find.text('*** ADDED TO WALLET ***'), findsOneWidget);
+    expect(find.text('VERIFIED'), findsOneWidget);
+    await done(t);
+  });
+
+  testWidgets('pulling down on home re-checks top-ups with Bachs', (t) async {
+    phoneSize(t);
+    final api = _CountingApi();
+    await t.pumpWidget(
+      MaterialApp(
+        theme: buildTheme(Palette.rider, dark: false),
+        home: HomeScreen(
+          api: api,
+          session: const Session(uid: 'u1', email: 'ada@uniosun.edu.ng', role: 'rider', pinSet: true, name: 'Adaeze Okafor'),
+          onSignOut: () {},
+        ),
+      ),
+    );
+    await settle(t, 1500);
+    await t.fling(find.text('WALLET BALANCE'), const Offset(0, 500), 1200);
+    await settle(t, 1500);
+    expect(api.refreshes, 1);
+    expect(find.text("You're up to date."), findsOneWidget);
+    expect(find.text('₦1,500'), findsOneWidget);
+    await done(t);
+  });
+
   testWidgets('a student adds a bank account, then withdraws to it', (t) async {
     await openHome(t);
     await t.tap(find.text('Withdraw'));
@@ -338,4 +390,13 @@ void main() {
     expect(find.text('Thank you'), findsOneWidget);
     await done(t);
   });
+}
+
+class _CountingApi extends DemoRiderApi {
+  int refreshes = 0;
+  @override
+  Future<TopUpCheck> refreshTopUps() {
+    refreshes++;
+    return super.refreshTopUps();
+  }
 }

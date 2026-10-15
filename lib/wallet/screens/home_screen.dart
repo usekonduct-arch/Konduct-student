@@ -2,21 +2,21 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../auth/auth_repository.dart';
 import '../../theme/tokens.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
+import '../../ui/web_screen.dart';
 import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'activity_screen.dart';
 import 'rate_sheet.dart';
-import 'receipt_screen.dart';
 import 'scan_screen.dart';
 import 'settings_screen.dart';
 import 'top_up_screen.dart';
+import 'transaction_screen.dart';
 import 'withdraw_screen.dart';
 import '../../support/support_screens.dart';
 
@@ -32,22 +32,51 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late final _balance = widget.api.balance();
-  late final _activity = widget.api.activity(limit: 30);
-  late final _paused = widget.api.paymentsPaused();
-  late final _parks = widget.api.parks();
+  late Stream<int?> _balance;
+  late Stream<List<Activity>> _activity;
+  late Stream<bool> _paused;
+  late Stream<List<Park>> _parks;
   // A second listener for the "rate your ride" prompt (a stream can only be listened to once).
-  late final _rateable = widget.api.activity(limit: 10);
+  late Stream<List<Activity>> _rateable;
+  late final AppLifecycleListener _lifecycle;
   bool _hidden = false;
+  // A top-up is still waiting for Bachs; checked again whenever the app comes back.
+  bool _topUpWaiting = false;
 
   RiderApi get api => widget.api;
+
+  @override
+  void initState() {
+    super.initState();
+    _listen();
+    _lifecycle = AppLifecycleListener(onResume: () => _topUpWaiting ? _refresh(quiet: true) : null);
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  /// Fresh subscriptions to everything on the page. Resubscribing also revives a listener the
+  /// connection dropped.
+  void _listen() {
+    _balance = api.balance();
+    _activity = api.activity(limit: 30);
+    _paused = api.paymentsPaused();
+    _parks = api.parks();
+    _rateable = api.activity(limit: 10);
+  }
+
+  Future<void> _refresh({bool quiet = false}) async {
+    await refreshWallet(context, api, quiet: quiet);
+    if (mounted) setState(_listen);
+  }
 
   void _scan() => pushScreen(context, ScanScreen(api: api));
   void _topUp() => pushScreen(context, TopUpScreen(api: api));
   void _withdraw() => pushScreen(context, WithdrawScreen(api: api));
-  void _open(Activity a) {
-    if (a.isFare) pushScreen(context, ReceiptScreen.fromActivity(api: api, activity: a));
-  }
+  void _open(Activity a) => openActivity(context, api, a);
 
   @override
   Widget build(BuildContext context) {
@@ -59,124 +88,131 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: p.bg,
         body: SafeArea(
           bottom: false,
-          child: CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                // One box, not a lazy list: these sections must keep their stream subscriptions when scrolled away.
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          const KMark(size: 40),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Hi, $name', style: KText.h3(p.text)),
-                                Text(_greeting(), style: KText.small(p.subtle)),
-                              ],
-                            ),
-                          ),
-                          if (api.isDemo) const Padding(padding: EdgeInsets.only(right: 10), child: DemoBadge()),
-                          SupportButton(api: api.support),
-                          const SizedBox(width: 8),
-                          RoundIconButton(
-                            icon: Icons.person_rounded,
-                            tooltip: 'Account',
-                            onTap: () => pushScreen(context, SettingsScreen(api: api, session: widget.session, onSignOut: widget.onSignOut)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      StreamBuilder<bool>(
-                        stream: _paused,
-                        builder: (_, s) => AnimatedSize(
-                          duration: const Duration(milliseconds: 300),
-                          child: s.data == true
-                              ? const Padding(padding: EdgeInsets.only(bottom: 14), child: _PausedBanner())
-                              : const SizedBox(width: double.infinity),
-                        ),
-                      ),
-                      Entrance(
-                        child: StreamBuilder<int?>(
-                          stream: _balance,
-                          builder: (_, s) => _BalanceCard(
-                            kobo: s.data,
-                            hidden: _hidden,
-                            onToggle: () => setState(() => _hidden = !_hidden),
-                            onTopUp: _topUp,
-                            onWithdraw: _withdraw,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Entrance(
-                        delay: const Duration(milliseconds: 80),
-                        child: _ScanCard(onTap: _scan),
-                      ),
-                      StreamBuilder<List<Activity>>(
-                        stream: _rateable,
-                        builder: (_, s) => _RatePrompt(api: api, fares: s.data ?? const []),
-                      ),
-                      StreamBuilder<List<Park>>(
-                        stream: _parks,
-                        builder: (_, s) => (s.data ?? const []).isEmpty
-                            ? const SizedBox.shrink()
-                            : Padding(
-                                padding: const EdgeInsets.only(top: 28),
-                                child: ParksStrip(parks: s.data!),
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            color: K.ink,
+            backgroundColor: K.yellow,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                  // One box, not a lazy list: these sections must keep their stream subscriptions when scrolled away.
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            const KMark(size: 40),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Hi, $name', style: KText.h3(p.text)),
+                                  Text(_greeting(), style: KText.small(p.subtle)),
+                                ],
                               ),
-                      ),
-                      const SizedBox(height: 28),
-                      Row(
-                        children: [
-                          Text('RECENT', style: KText.kicker(p.subtle)),
-                          const Spacer(),
-                          Pressable(
-                            onTap: () => pushScreen(context, ActivityScreen(api: api)),
-                            child: Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: Text('See all', style: KText.small(p.text).copyWith(decoration: TextDecoration.underline)),
+                            ),
+                            if (api.isDemo) const Padding(padding: EdgeInsets.only(right: 10), child: DemoBadge()),
+                            SupportButton(api: api.support),
+                            const SizedBox(width: 8),
+                            RoundIconButton(
+                              icon: Icons.person_rounded,
+                              tooltip: 'Account',
+                              onTap: () => pushScreen(context, SettingsScreen(api: api, session: widget.session, onSignOut: widget.onSignOut)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        StreamBuilder<bool>(
+                          stream: _paused,
+                          builder: (_, s) => AnimatedSize(
+                            duration: const Duration(milliseconds: 300),
+                            child: s.data == true
+                                ? const Padding(padding: EdgeInsets.only(bottom: 14), child: _PausedBanner())
+                                : const SizedBox(width: double.infinity),
+                          ),
+                        ),
+                        Entrance(
+                          child: StreamBuilder<int?>(
+                            stream: _balance,
+                            builder: (_, s) => _BalanceCard(
+                              kobo: s.data,
+                              hidden: _hidden,
+                              onToggle: () => setState(() => _hidden = !_hidden),
+                              onTopUp: _topUp,
+                              onWithdraw: _withdraw,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                    ],
+                        ),
+                        const SizedBox(height: 14),
+                        Entrance(
+                          delay: const Duration(milliseconds: 80),
+                          child: _ScanCard(onTap: _scan),
+                        ),
+                        StreamBuilder<List<Activity>>(
+                          stream: _rateable,
+                          builder: (_, s) => _RatePrompt(api: api, fares: s.data ?? const []),
+                        ),
+                        StreamBuilder<List<Park>>(
+                          stream: _parks,
+                          builder: (_, s) => (s.data ?? const []).isEmpty
+                              ? const SizedBox.shrink()
+                              : Padding(
+                                  padding: const EdgeInsets.only(top: 28),
+                                  child: ParksStrip(parks: s.data!),
+                                ),
+                        ),
+                        const SizedBox(height: 28),
+                        Row(
+                          children: [
+                            Text('RECENT', style: KText.kicker(p.subtle)),
+                            const Spacer(),
+                            Pressable(
+                              onTap: () => pushScreen(context, ActivityScreen(api: api)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(6),
+                                child: Text('See all', style: KText.small(p.text).copyWith(decoration: TextDecoration.underline)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + MediaQuery.paddingOf(context).bottom),
-                sliver: SliverToBoxAdapter(
-                  child: StreamBuilder<List<Activity>>(
-                    stream: _activity,
-                    builder: (_, s) {
-                      if (s.hasError) {
-                        return _Note(icon: Icons.cloud_off_rounded, text: 'Couldn\'t load your activity. Check your connection and try again.');
-                      }
-                      if (!s.hasData) {
-                        return const Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Center(child: CircularProgressIndicator(color: K.yellowDeep)),
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + MediaQuery.paddingOf(context).bottom),
+                  sliver: SliverToBoxAdapter(
+                    child: StreamBuilder<List<Activity>>(
+                      stream: _activity,
+                      builder: (_, s) {
+                        if (s.hasError) {
+                          return _Note(icon: Icons.cloud_off_rounded, text: 'Couldn\'t load your activity. Check your connection and try again.');
+                        }
+                        if (!s.hasData) {
+                          return const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Center(child: CircularProgressIndicator(color: K.yellowDeep)),
+                          );
+                        }
+                        final items = s.data!;
+                        _topUpWaiting = items.any((a) => a.kind == ActivityKind.topUp && a.pending);
+                        if (items.isEmpty) {
+                          return _Note(icon: Icons.directions_bus_rounded, text: 'No rides yet. Top up, then scan the sticker on any Konduct shuttle or bike.');
+                        }
+                        return Column(
+                          children: [for (final a in items.take(6)) ActivityTile(a: a, onTap: () => _open(a))],
                         );
-                      }
-                      final items = s.data!;
-                      if (items.isEmpty) {
-                        return _Note(icon: Icons.directions_bus_rounded, text: 'No rides yet. Top up, then scan the sticker on any Konduct shuttle or bike.');
-                      }
-                      return Column(
-                        children: [for (final a in items.take(6)) ActivityTile(a: a, onTap: a.isFare ? () => _open(a) : null)],
-                      );
-                    },
+                      },
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -420,11 +456,9 @@ class _ParkCard extends StatelessWidget {
   const _ParkCard(this.park);
   final Park park;
 
-  Future<void> _openMap() =>
-      launchUrl(Uri.parse('https://www.google.com/maps/search/?api=1&query=${park.lat},${park.lng}'), mode: LaunchMode.externalApplication);
-
   @override
   Widget build(BuildContext context) {
+    void openMap() => openWeb(context, 'https://www.google.com/maps/search/?api=1&query=${park.lat},${park.lng}', title: park.name);
     final p = Palette.of(context);
     final now = DateTime.now();
     final stale = park.staleAt(now);
@@ -469,7 +503,7 @@ class _ParkCard extends StatelessWidget {
       label: '${park.name}, ${park.busCount} ${park.busCount == 1 ? 'bus' : 'buses'}. $updated.',
       button: park.hasPin,
       excludeSemantics: true,
-      child: park.hasPin ? Pressable(scale: 0.97, onTap: _openMap, child: card) : card,
+      child: park.hasPin ? Pressable(scale: 0.97, onTap: openMap, child: card) : card,
     );
   }
 
@@ -540,5 +574,22 @@ class _RatePromptState extends State<_RatePrompt> {
               ),
             ),
     );
+  }
+}
+
+/// Pull-to-refresh: asks the backend to re-check open top-ups with Bachs (its confirmation can be
+/// late) and says what happened. [quiet] only speaks up when money was added.
+Future<void> refreshWallet(BuildContext context, RiderApi api, {bool quiet = false}) async {
+  try {
+    final r = await api.refreshTopUps();
+    if (!context.mounted) return;
+    if (r.credited > 0) {
+      HapticFeedback.mediumImpact();
+      showSnack(context, r.credited == 1 ? 'Top-up confirmed. Your balance is updated.' : '${r.credited} top-ups confirmed. Your balance is updated.');
+    } else if (!quiet) {
+      showSnack(context, r.checked > 0 ? 'Still waiting for Bachs to confirm your top-up. We add it the moment they do.' : 'You\'re up to date.');
+    }
+  } on ApiException catch (e) {
+    if (!quiet && context.mounted) showSnack(context, e.message);
   }
 }

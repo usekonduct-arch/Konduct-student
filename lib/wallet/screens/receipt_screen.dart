@@ -83,7 +83,6 @@ class ReceiptScreen extends StatefulWidget {
 
 class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProviderStateMixin {
   late String _status = widget.status;
-  late final _dispute = widget.api.disputeState(widget.txId);
   late final _pop = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
   Timer? _tick;
   bool _undoing = false;
@@ -147,19 +146,8 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
     }
   }
 
-  Future<void> _report() async {
-    final done = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _DisputeSheet(api: widget.api, txId: widget.txId),
-    );
-    if (done == true && mounted) showSnack(context, 'Reported. We\'ll look into it within 3 days.');
-  }
-
   @override
   Widget build(BuildContext context) {
-    final p = Palette.of(context);
     final reversed = _status == 'reversed' || _status == 'refunded';
     // Undo and Done stay pinned at the bottom, so the 60-second undo is never below the fold.
     final undo = _canUndo
@@ -244,40 +232,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
           ),
           const SizedBox(height: 14),
           if (!reversed) RideRatingCard(api: widget.api, txId: widget.txId),
-          if (!reversed && !_canUndo)
-            StreamBuilder<String?>(
-              stream: _dispute,
-              builder: (_, s) {
-                final state = s.data;
-                if (state != null) {
-                  return Panel(
-                    child: Row(
-                      children: [
-                        const Icon(Icons.support_agent_rounded, color: K.yellowDeep),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            state == 'open' || state == 'in_review'
-                                ? 'You reported this payment. We\'ll update you within 3 days.'
-                                : 'Your report on this payment was closed.',
-                            style: KText.small(p.text),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return Center(
-                  child: Pressable(
-                    onTap: _report,
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Text('Report a problem with this payment', style: KText.small(p.subtle).copyWith(decoration: TextDecoration.underline)),
-                    ),
-                  ),
-                );
-              },
-            ),
+          if (!reversed && !_canUndo) FareReportLink(api: widget.api, txId: widget.txId),
         ],
       ),
     );
@@ -317,6 +272,67 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
           ),
         ],
       ),
+    );
+  }
+}
+
+/// "Report a problem with this payment", or where the report stands once one is open.
+class FareReportLink extends StatefulWidget {
+  const FareReportLink({super.key, required this.api, required this.txId});
+  final RiderApi api;
+  final String txId;
+  @override
+  State<FareReportLink> createState() => _FareReportLinkState();
+}
+
+class _FareReportLinkState extends State<FareReportLink> {
+  late final _dispute = widget.api.disputeState(widget.txId);
+
+  Future<void> _report() async {
+    final done = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _DisputeSheet(api: widget.api, txId: widget.txId),
+    );
+    if (done == true && mounted) showSnack(context, 'Reported. We\'ll look into it within 3 days.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return StreamBuilder<String?>(
+      stream: _dispute,
+      builder: (_, s) {
+        final state = s.data;
+        if (state != null) {
+          return Panel(
+            child: Row(
+              children: [
+                const Icon(Icons.support_agent_rounded, color: K.yellowDeep),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    state == 'open' || state == 'in_review'
+                        ? 'You reported this payment. We\'ll update you within 3 days.'
+                        : 'Your report on this payment was closed.',
+                    style: KText.small(p.text),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return Center(
+          child: Pressable(
+            onTap: _report,
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Text('Report a problem with this payment', style: KText.small(p.subtle).copyWith(decoration: TextDecoration.underline)),
+            ),
+          ),
+        );
+      },
     );
   }
 }

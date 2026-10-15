@@ -51,6 +51,12 @@ abstract class RiderApi {
   /// Opens a Bachs checkout. Returns its URL.
   Future<String> createTopUp({required int amountKobo, required String idempotencyKey});
 
+  /// Asks the backend to re-check open top-ups with Bachs, in case its confirmation is late.
+  Future<TopUpCheck> refreshTopUps();
+
+  /// The ledger's proof for one of this rider's fares, top-ups or withdrawals.
+  Future<ReceiptProof> receiptProof({required ActivityKind kind, required String id});
+
   Future<void> openDispute({required String txId, required DisputeReason reason, String note = ''});
 
   Future<void> changePin({required String oldPin, required String newPin});

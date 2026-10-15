@@ -211,6 +211,24 @@ class FirebaseRiderApi implements RiderApi {
   }
 
   @override
+  Future<TopUpCheck> refreshTopUps() async {
+    final data = await _call('refreshTopUps', {});
+    return TopUpCheck(checked: (data['checked'] as num?)?.toInt() ?? 0, credited: (data['credited'] as num?)?.toInt() ?? 0);
+  }
+
+  @override
+  Future<ReceiptProof> receiptProof({required ActivityKind kind, required String id}) async => ReceiptProof.fromMap(
+    await _call('receiptProof', {
+      'kind': switch (kind) {
+        ActivityKind.fare => 'fare',
+        ActivityKind.topUp => 'topup',
+        ActivityKind.withdrawal => 'payout',
+      },
+      'id': id,
+    }),
+  );
+
+  @override
   Future<void> openDispute({required String txId, required DisputeReason reason, String note = ''}) =>
       _call('openDispute', {'txId': txId, 'reason': reason.code, 'note': note});
 

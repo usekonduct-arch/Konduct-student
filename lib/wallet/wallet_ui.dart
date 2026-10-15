@@ -50,19 +50,29 @@ String untilText(DateTime t, {DateTime? now}) {
 }
 
 /// Plain screen frame for everything after sign-up: round back button, title, scrolling body.
+/// With [onRefresh] the body can be pulled down to refresh.
 class PageFrame extends StatelessWidget {
-  const PageFrame({super.key, required this.title, required this.child, this.kicker, this.bottom, this.trailing, this.scroll = true});
+  const PageFrame({super.key, required this.title, required this.child, this.kicker, this.bottom, this.trailing, this.scroll = true, this.onRefresh});
   final String title;
   final String? kicker;
   final Widget child;
   final Widget? bottom;
   final Widget? trailing;
   final bool scroll;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
     final p = Palette.of(context);
     final body = Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 16), child: child);
+    final scrolling = onRefresh == null
+        ? SingleChildScrollView(child: body)
+        : RefreshIndicator(
+            onRefresh: onRefresh!,
+            color: K.ink,
+            backgroundColor: K.yellow,
+            child: SingleChildScrollView(physics: const AlwaysScrollableScrollPhysics(), child: body),
+          );
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
@@ -97,7 +107,7 @@ class PageFrame extends StatelessWidget {
                   ],
                 ),
               ),
-              Expanded(child: scroll ? SingleChildScrollView(child: body) : body),
+              Expanded(child: scroll ? scrolling : body),
               if (bottom != null) Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 16), child: bottom),
             ],
           ),

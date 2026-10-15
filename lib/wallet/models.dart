@@ -238,6 +238,43 @@ class Activity {
       (isWithdrawal && const ['reserved', 'transferred', 'submitted', 'unknown'].contains(status));
 }
 
+/// receiptProof's answer: the ledger's word on one fare, top-up or withdrawal.
+class ReceiptProof {
+  const ReceiptProof({required this.verified, required this.posted, this.verifyUrl, this.hash, this.balanceAfterKobo, this.postedAt, this.reversed = false});
+
+  /// The entry recomputes and sits in the wallet's hash chain.
+  final bool verified;
+
+  /// False while there is nothing on the ledger yet (a top-up still waiting for payment).
+  final bool posted;
+
+  /// The public receipt check (printed as a QR); null in demo mode.
+  final String? verifyUrl;
+  final String? hash;
+  final int? balanceAfterKobo;
+  final DateTime? postedAt;
+  final bool reversed;
+
+  /// What the receipt prints: the first 16 characters of the entry's hash.
+  String? get fingerprint => hash == null || hash!.length < 16 ? hash : hash!.substring(0, 16);
+
+  factory ReceiptProof.fromMap(Map<String, dynamic> m) => ReceiptProof(
+    verified: m['verified'] == true,
+    posted: m['posted'] == true,
+    verifyUrl: m['verifyUrl'] as String?,
+    hash: m['hash'] as String?,
+    balanceAfterKobo: (m['balanceAfterKobo'] as num?)?.toInt(),
+    postedAt: m['postedAtMs'] == null ? null : DateTime.fromMillisecondsSinceEpoch((m['postedAtMs'] as num).toInt()),
+    reversed: m['reversed'] == true,
+  );
+}
+
+/// refreshTopUps' answer: open top-ups re-checked with Bachs, and how many were just added.
+class TopUpCheck {
+  const TopUpCheck({required this.checked, required this.credited});
+  final int checked, credited;
+}
+
 /// A Nigerian bank from Bachs's list.
 class Bank {
   const Bank(this.code, this.name);
