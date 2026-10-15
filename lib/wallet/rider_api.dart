@@ -43,9 +43,6 @@ abstract class RiderApi {
 
   Future<PayResult> confirm({required String quoteId, required String idempotencyKey, String? pin, bool repeatConfirmed = false});
 
-  /// Undo within 60 seconds. Returns the new balance.
-  Future<int> undo(String txId);
-
   /// One fare, live (for its rating); null if it can't be read.
   Stream<Activity?> fare(String txId);
 

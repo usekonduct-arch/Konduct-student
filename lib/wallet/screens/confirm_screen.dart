@@ -283,6 +283,14 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
               style: KText.small(p.subtle),
             ),
           ),
+          const SizedBox(height: 6),
+          Center(
+            child: Text(
+              'Check the plate matches your vehicle. Payments can\'t be undone.',
+              textAlign: TextAlign.center,
+              style: KText.small(p.subtle),
+            ),
+          ),
         ],
       ),
     );

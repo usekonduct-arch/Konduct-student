@@ -116,21 +116,18 @@ void main() {
     await done(t);
   });
 
-  testWidgets('a wrong-vehicle payment can be undone within a minute', (t) async {
+  testWidgets('a payment can\'t be undone; a wrong-vehicle payment goes to support', (t) async {
     await openHome(t);
     await scanSample(t);
     await t.tap(find.text('Pay ₦200'));
     await settle(t, 2000);
 
-    await t.tap(find.textContaining('Wrong vehicle? Undo'));
-    await settle(t, 600);
-    await t.tap(find.text('Undo'));
-    await settle(t, 1500);
-    expect(find.text('Payment undone.'), findsOneWidget);
-
-    await t.tap(find.byIcon(Icons.arrow_back_rounded));
+    expect(find.textContaining('Undo'), findsNothing);
+    expect(find.text('Paid the wrong vehicle?'), findsOneWidget);
+    await t.ensureVisible(find.text('Paid the wrong vehicle?'));
+    await t.tap(find.text('Paid the wrong vehicle?'));
     await settle(t, 1200);
-    expect(find.text('₦1,500'), findsOneWidget);
+    expect(find.text('About this payment'), findsOneWidget);
     await done(t);
   });
 

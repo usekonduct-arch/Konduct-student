@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,10 +8,11 @@ import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'rate_sheet.dart';
+import '../../support/support_api.dart';
 import '../../support/support_screens.dart';
 
-/// A fare receipt. Straight after paying it celebrates and offers a 60-second undo; from the
-/// activity list it's the record, with "Report a problem".
+/// The receipt straight after paying: it celebrates, shows the code for the driver, and points a
+/// rider who paid the wrong vehicle to support (payments can't be undone in the app).
 class ReceiptScreen extends StatefulWidget {
   const ReceiptScreen._({
     required this.api,
@@ -28,7 +27,6 @@ class ReceiptScreen extends StatefulWidget {
     required this.status,
     required this.justPaid,
     this.driverName,
-    this.undoUntil,
     this.balanceKobo,
     this.tripRoute,
   });
@@ -46,26 +44,8 @@ class ReceiptScreen extends StatefulWidget {
     driverName: quote.driverFirstName,
     tripRoute: quote.tripRoute,
     status: 'completed',
-    undoUntil: result.undoUntil,
     balanceKobo: result.balanceKobo,
     justPaid: true,
-  );
-
-  factory ReceiptScreen.fromActivity({required RiderApi api, required Activity activity}) => ReceiptScreen._(
-    api: api,
-    txId: activity.id,
-    reference: activity.reference,
-    totalKobo: activity.amountKobo,
-    passengers: activity.passengers,
-    offlineCode: activity.offlineCode,
-    at: activity.at,
-    routeName: activity.routeName,
-    plate: activity.plate,
-    status: activity.status,
-    undoUntil: activity.undoUntil,
-    driverName: activity.driverName.isEmpty ? null : activity.driverName,
-    tripRoute: activity.tripRoute,
-    justPaid: false,
   );
 
   final RiderApi api;
@@ -74,7 +54,6 @@ class ReceiptScreen extends StatefulWidget {
   final int totalKobo, passengers;
   final int? balanceKobo;
   final DateTime at;
-  final DateTime? undoUntil;
   final TripRoute? tripRoute;
   final bool justPaid;
 
@@ -83,10 +62,8 @@ class ReceiptScreen extends StatefulWidget {
 }
 
 class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProviderStateMixin {
-  late String _status = widget.status;
+  late final String _status = widget.status;
   late final _pop = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
-  Timer? _tick;
-  bool _undoing = false;
 
   @override
   void initState() {
@@ -99,98 +76,22 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
         clip: 'sounds/voice_payment_success.wav',
       );
     }
-    if (_canUndo) _tick = Timer.periodic(const Duration(seconds: 1), (_) => setState(() => _canUndo || _stopTick()));
-  }
-
-  bool _stopTick() {
-    _tick?.cancel();
-    return false;
   }
 
   @override
   void dispose() {
-    _tick?.cancel();
     _pop.dispose();
     super.dispose();
-  }
-
-  bool get _canUndo => _status == 'completed' && widget.undoUntil != null && DateTime.now().isBefore(widget.undoUntil!);
-
-  Future<void> _undo() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        final p = Palette.of(context);
-        return AlertDialog(
-          backgroundColor: p.bg,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: Text('Undo this payment?', style: KText.h3(p.text)),
-          content: Text('${naira(widget.totalKobo)} goes back to your wallet. Use this if you scanned the wrong vehicle.', style: KText.body(p.subtle)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text('Keep it', style: KText.body(p.text).copyWith(fontWeight: FontWeight.w700)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text('Undo', style: KText.body(K.coral).copyWith(fontWeight: FontWeight.w800)),
-            ),
-          ],
-        );
-      },
-    );
-    if (ok != true || !mounted) return;
-    setState(() => _undoing = true);
-    try {
-      final balance = await widget.api.undo(widget.txId);
-      if (!mounted) return;
-      HapticFeedback.mediumImpact();
-      setState(() => _status = 'reversed');
-      showSnack(context, 'Undone. ${naira(balance)} in your wallet.');
-    } on ApiException catch (e) {
-      if (mounted) showSnack(context, e.message);
-    } finally {
-      if (mounted) setState(() => _undoing = false);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final reversed = _status == 'reversed' || _status == 'refunded';
-    // Undo and Done stay pinned at the bottom, so the 60-second undo is never below the fold.
-    final undo = _canUndo
-        ? Pressable(
-            onTap: _undoing ? null : _undo,
-            child: Container(
-              height: 54,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(27),
-                border: Border.all(color: K.coral),
-              ),
-              alignment: Alignment.center,
-              child: _undoing
-                  ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.6, color: K.coral))
-                  : Text(
-                      'Wrong vehicle? Undo (${widget.undoUntil!.difference(DateTime.now()).inSeconds}s)',
-                      style: KText.body(K.coral).copyWith(fontWeight: FontWeight.w800),
-                    ),
-            ),
-          )
-        : null;
     return PageFrame(
       trailing: SupportButton(api: widget.api.support, txId: widget.txId),
       kicker: widget.justPaid ? 'Paid' : 'Receipt',
       title: reversed ? (_status == 'refunded' ? 'Refunded.' : 'Payment undone.') : (widget.justPaid ? 'You\'re good to go.' : naira(widget.totalKobo)),
-      bottom: undo == null && !widget.justPaid
-          ? null
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ?undo,
-                if (undo != null && widget.justPaid) const SizedBox(height: 10),
-                if (widget.justPaid) KButton(label: 'Done', onTap: () => Navigator.of(context).pop()),
-              ],
-            ),
+      bottom: widget.justPaid ? KButton(label: 'Done', onTap: () => Navigator.of(context).pop()) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -239,8 +140,9 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
             ),
           ),
           const SizedBox(height: 14),
+          if (!reversed && widget.justPaid) _WrongVehicle(api: widget.api, txId: widget.txId),
           if (!reversed) RideRatingCard(api: widget.api, txId: widget.txId),
-          if (!reversed && !_canUndo) FareReportLink(api: widget.api, txId: widget.txId),
+          if (!reversed) FareReportLink(api: widget.api, txId: widget.txId),
         ],
       ),
     );
@@ -279,6 +181,44 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
                 : value,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Payments can't be undone in the app (it was used to ride for free). A rider who paid the wrong
+/// vehicle talks to support, who can refund it after checking.
+class _WrongVehicle extends StatelessWidget {
+  const _WrongVehicle({required this.api, required this.txId});
+  final RiderApi api;
+  final String txId;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Pressable(
+        onTap: () => pushScreen(context, NewSupportScreen(api: api.support, txId: txId, category: SupportCategory.payment)),
+        child: Panel(
+          child: Row(
+            children: [
+              const Icon(Icons.support_agent_rounded, color: K.yellowDeep),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Paid the wrong vehicle?', style: KText.body(p.text).copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text('Payments can\'t be undone. Contact support and we\'ll check it.', style: KText.small(p.subtle)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: p.subtle),
+            ],
+          ),
+        ),
       ),
     );
   }

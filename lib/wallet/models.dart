@@ -144,12 +144,10 @@ class PayResult {
     required this.passengers,
     required this.balanceKobo,
     required this.offlineCode,
-    required this.undoUntil,
   });
 
   final String txId, reference, offlineCode;
   final int totalKobo, passengers, balanceKobo;
-  final DateTime undoUntil;
 
   factory PayResult.fromMap(Map<String, dynamic> m) => PayResult(
     txId: m['txId'] as String,
@@ -158,7 +156,6 @@ class PayResult {
     passengers: (m['passengers'] as num).toInt(),
     balanceKobo: (m['balanceKobo'] as num).toInt(),
     offlineCode: m['offlineCode'] as String,
-    undoUntil: DateTime.fromMillisecondsSinceEpoch((m['undoUntilMs'] as num).toInt()),
   );
 }
 
@@ -177,7 +174,6 @@ class Activity {
     this.plate = '',
     this.passengers = 1,
     this.offlineCode = '',
-    this.undoUntil,
     this.checkoutUrl,
     this.driverName = '',
     this.tripRoute,
@@ -194,7 +190,6 @@ class Activity {
   final String status;
   final String reference, routeName, plate, offlineCode;
   final int passengers;
-  final DateTime? undoUntil;
   final String? checkoutUrl;
 
   /// Fares: the driver's first name, the trip route, when the rider may rate the driver (the
@@ -221,7 +216,6 @@ class Activity {
     plate: plate,
     passengers: passengers,
     offlineCode: offlineCode,
-    undoUntil: undoUntil,
     checkoutUrl: checkoutUrl,
     driverName: driverName,
     tripRoute: tripRoute,

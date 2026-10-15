@@ -71,8 +71,10 @@ class FirebaseRiderApi implements RiderApi {
     );
   });
 
+  /// Live balance. If the listener is ever cut off (a dropped permission check, a sign-in refresh)
+  /// it reconnects by itself instead of freezing on the last number.
   @override
-  Stream<int?> balance() => _db.doc('wallets/rider_$_uid').snapshots().map((s) => (s.data()?['balanceKobo'] as num?)?.toInt());
+  Stream<int?> balance() => keepListening(() => _db.doc('wallets/rider_$_uid').snapshots().map((s) => (s.data()?['balanceKobo'] as num?)?.toInt()));
 
   @override
   Stream<List<Activity>> activity({int limit = 30}) {
@@ -117,7 +119,6 @@ class FirebaseRiderApi implements RiderApi {
   }
 
   Activity _fare(String id, Map<String, dynamic> m) {
-    final undo = (m['undoUntilMs'] as num?)?.toInt();
     final rateFrom = (m['rateFromMs'] as num?)?.toInt();
     return Activity(
       id: id,
@@ -130,7 +131,6 @@ class FirebaseRiderApi implements RiderApi {
       plate: m['plate'] as String? ?? '',
       passengers: (m['passengers'] as num?)?.toInt() ?? 1,
       offlineCode: m['offlineCode'] as String? ?? '',
-      undoUntil: undo == null ? null : DateTime.fromMillisecondsSinceEpoch(undo),
       driverName: m['driverFirstName'] as String? ?? '',
       tripRoute: TripRoute.fromMap(m['tripRoute']),
       rateFrom: rateFrom == null ? null : DateTime.fromMillisecondsSinceEpoch(rateFrom),
@@ -200,9 +200,6 @@ class FirebaseRiderApi implements RiderApi {
     final data = await _call('payConfirm', {'quoteId': quoteId, 'idempotencyKey': idempotencyKey, 'pin': ?pin, 'repeatConfirmed': repeatConfirmed});
     return PayResult.fromMap(data);
   }
-
-  @override
-  Future<int> undo(String txId) async => ((await _call('payUndo', {'txId': txId}))['balanceKobo'] as num).toInt();
 
   @override
   Future<String> createTopUp({required int amountKobo, required String idempotencyKey}) async {
@@ -331,6 +328,29 @@ class FirebaseRiderApi implements RiderApi {
       throw ApiException(reason, message, details: details);
     }
   }
+}
+
+/// A stream that re-opens itself a few seconds after an error, so one failed Firestore listener
+/// doesn't leave the screen stuck on an old value.
+Stream<T> keepListening<T>(Stream<T> Function() open, {Duration retry = const Duration(seconds: 3)}) {
+  late StreamController<T> c;
+  StreamSubscription<T>? sub;
+  Timer? again;
+  void start() {
+    sub = open().listen(c.add, onError: (Object _) {
+      sub?.cancel();
+      again = Timer(retry, start);
+    });
+  }
+
+  c = StreamController<T>(
+    onListen: start,
+    onCancel: () async {
+      again?.cancel();
+      await sub?.cancel();
+    },
+  );
+  return c.stream;
 }
 
 /// The latest value of every stream, once each has produced one.

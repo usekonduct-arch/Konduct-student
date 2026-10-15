@@ -15,12 +15,8 @@ import 'rate_sheet.dart';
 import 'receipt_screen.dart';
 import '../../support/support_screens.dart';
 
-/// Opens a line from the activity list. A fare that can still be undone keeps the undo receipt;
-/// everything else prints its full receipt.
-void openActivity(BuildContext context, RiderApi api, Activity a) {
-  final undoable = a.isFare && a.status == 'completed' && a.undoUntil != null && DateTime.now().isBefore(a.undoUntil!);
-  pushScreen(context, undoable ? ReceiptScreen.fromActivity(api: api, activity: a) : TransactionScreen(api: api, activity: a));
-}
+/// Opens a line from the activity list: its full receipt.
+void openActivity(BuildContext context, RiderApi api, Activity a) => pushScreen(context, TransactionScreen(api: api, activity: a));
 
 /// The full breakdown of one fare, top-up or withdrawal, printed like a POS slip and checked
 /// against the ledger. It reprints by itself if the record changes (a top-up gets confirmed).

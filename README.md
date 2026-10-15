@@ -35,7 +35,7 @@ which only the backend can set, so a relaunch needs no network call.
 
 Home (live balance, top up, scan to pay, recent activity) → scan the sticker or type its code, pick riders →
 confirm (driver, plate, route, total; PIN at ₦500+; asks before paying the same vehicle twice) → receipt (offline code
-for the driver, 60-second undo, report a problem). Top-ups open the Bachs checkout in a browser tab and credit when the
+for the driver, report a problem; no self-service undo: wrong-vehicle payments go to support). Top-ups open the Bachs checkout in a browser tab and credit when the
 webhook lands; the return page on the website links back with `konduct://wallet`.
 
 Reads are live Firestore listeners limited by the security rules to the rider's own documents; every change is a

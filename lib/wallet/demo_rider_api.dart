@@ -8,7 +8,7 @@ import 'rider_api.dart';
 
 /// Stand-in used without Firebase (`--dart-define=KONDUCT_DEMO=true`). Starts with ₦1,500.
 /// Any sticker code works and costs ₦200 a rider. Code `OFF000` plays a vehicle that's off duty.
-/// The demo bus seats 7 and already has 2 riders paid by scan; undo gives seats back. Its trip
+/// The demo bus seats 7 and already has 2 riders paid by scan. Its trip
 /// goes Shasha park → Main gate (about 12 minutes). An earlier ride is waiting to be rated.
 /// A top-up "pays" itself two seconds after the checkout opens.
 /// Bank accounts: any 10-digit number resolves to the rider's own name and is "approved" two
@@ -175,7 +175,6 @@ class DemoRiderApi implements RiderApi {
       passengers: q.passengers,
       balanceKobo: _balance,
       offlineCode: 'Q7${_n}M4K'.substring(0, 6),
-      undoUntil: DateTime.now().add(const Duration(seconds: 60)),
     );
     _results[idempotencyKey] = r;
     _items.insert(
@@ -191,7 +190,6 @@ class DemoRiderApi implements RiderApi {
         plate: q.plate,
         passengers: q.passengers,
         offlineCode: r.offlineCode,
-        undoUntil: r.undoUntil,
         driverName: q.driverFirstName,
         tripRoute: _trip,
         rateFrom: DateTime.now().add(Duration(minutes: _trip.etaMin)),
@@ -199,22 +197,6 @@ class DemoRiderApi implements RiderApi {
     );
     _touch();
     return r;
-  }
-
-  @override
-  Future<int> undo(String txId) async {
-    await _lag();
-    final i = _items.indexWhere((a) => a.id == txId);
-    if (i < 0) throw const ApiException('bad_tx', 'We couldn\'t find that payment.');
-    final a = _items[i];
-    if (a.undoUntil == null || DateTime.now().isAfter(a.undoUntil!)) {
-      throw const ApiException('undo_expired', 'It\'s too late to undo. Open a dispute from the receipt instead.');
-    }
-    _balance += a.amountKobo;
-    _seatsTaken = (_seatsTaken - a.passengers).clamp(0, _busSeats);
-    _items[i] = a.copyWith(status: 'reversed');
-    _touch();
-    return _balance;
   }
 
   @override
