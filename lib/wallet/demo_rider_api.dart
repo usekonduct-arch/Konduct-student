@@ -102,6 +102,87 @@ class DemoRiderApi implements RiderApi {
     ]);
   }
 
+  /// Four buses: the sample sticker's bus and another at Shasha park, one at Main Campus park
+  /// with every seat free, and a full one on the road.
+  @override
+  Stream<List<LiveBus>> buses() => _live(() {
+    final now = DateTime.now();
+    return [
+      LiveBus(
+        id: 'veh_demo',
+        plate: 'OS 482 KJA',
+        capacity: _busSeats,
+        seatsTaken: _seatsTaken,
+        seatsResetAt: now.add(const Duration(minutes: 15)),
+        driverName: 'Tunde',
+        rating: 4.6,
+        ratingCount: 31,
+        fareRouteId: 'main-faculty',
+        fareRouteName: 'Main gate → Faculty of Science',
+        fareKobo: 20000,
+        trip: _trip,
+        parkId: 'shasha',
+        parkName: 'Shasha park',
+        parkSince: now.subtract(const Duration(minutes: 6)),
+        parkUntil: now.add(const Duration(hours: 1)),
+      ),
+      LiveBus(
+        id: 'veh_kemi',
+        plate: 'OS 117 EDE',
+        capacity: _busSeats,
+        seatsTaken: 5,
+        seatsResetAt: now.add(const Duration(minutes: 12)),
+        driverName: 'Kemi',
+        rating: 4.8,
+        ratingCount: 54,
+        fareRouteId: 'hostels-gate',
+        fareRouteName: 'Hostels → Main gate',
+        fareKobo: 15000,
+        trip: const TripRoute(from: 'Shasha park', to: 'Hostels', etaMin: 9),
+        parkId: 'shasha',
+        parkName: 'Shasha park',
+        parkSince: now.subtract(const Duration(minutes: 14)),
+        parkUntil: now.add(const Duration(hours: 1)),
+      ),
+      LiveBus(
+        id: 'veh_sola',
+        plate: 'OS 905 IWO',
+        capacity: _busSeats,
+        seatsTaken: 0,
+        driverName: 'Sola',
+        fareRouteId: 'main-faculty',
+        fareRouteName: 'Main gate → Faculty of Science',
+        fareKobo: 20000,
+        trip: const TripRoute(from: 'Main gate', to: 'Faculty of Science', etaMin: 8),
+        parkId: 'main-campus',
+        parkName: 'Main Campus park',
+        parkSince: now.subtract(const Duration(minutes: 3)),
+        parkUntil: now.add(const Duration(hours: 2)),
+      ),
+      LiveBus(
+        id: 'veh_bayo',
+        plate: 'OS 233 OSG',
+        capacity: _busSeats,
+        seatsTaken: _busSeats,
+        seatsResetAt: now.add(const Duration(minutes: 10)),
+        driverName: 'Bayo',
+        rating: 4.2,
+        ratingCount: 12,
+        fareRouteId: 'shasha-gate',
+        fareRouteName: 'Shasha park → Main gate',
+        fareKobo: 25000,
+        trip: const TripRoute(from: 'Main gate', to: 'Shasha park', etaMin: 12),
+      ),
+    ];
+  });
+
+  @override
+  Stream<List<FareRoute>> routes() => Stream.value(const [
+    FareRoute(id: 'hostels-gate', name: 'Hostels → Main gate', stops: ['Hostels', 'Sports complex', 'Main gate'], fareKobo: 15000),
+    FareRoute(id: 'main-faculty', name: 'Main gate → Faculty of Science', stops: ['Main gate', 'Library', 'Faculty of Science'], fareKobo: 20000),
+    FareRoute(id: 'shasha-gate', name: 'Shasha park → Main gate', stops: ['Shasha park', 'Old garage', 'Main gate'], fareKobo: 25000),
+  ]);
+
   @override
   Stream<String?> disputeState(String txId) => _live(() => _disputes[txId]);
 

@@ -336,3 +336,87 @@ class ApiException implements Exception {
   @override
   String toString() => message;
 }
+
+/// liveBuses/{id}: one bus on the riders' board. The server keeps it current: where the bus is
+/// checked in, where it's going and how many seats were paid by scan on this trip.
+class LiveBus {
+  const LiveBus({
+    required this.id,
+    required this.plate,
+    required this.capacity,
+    required this.seatsTaken,
+    this.isBike = false,
+    this.seatsResetAt,
+    this.driverName = '',
+    this.rating,
+    this.ratingCount = 0,
+    this.fareRouteId = '',
+    this.fareRouteName = '',
+    this.fareKobo = 0,
+    this.trip,
+    this.parkId,
+    this.parkName,
+    this.parkSince,
+    this.parkUntil,
+  });
+
+  final String id, plate, driverName, fareRouteId, fareRouteName;
+  final bool isBike;
+  final int capacity, seatsTaken, ratingCount, fareKobo;
+
+  /// The scanned seats go back to 0 at this time if nobody else scans in.
+  final DateTime? seatsResetAt;
+  final double? rating;
+
+  /// Where the bus is going on this trip; null until the driver sets it.
+  final TripRoute? trip;
+
+  /// The park it's checked in at, since when, and when the check-in lapses on its own.
+  final String? parkId, parkName;
+  final DateTime? parkSince, parkUntil;
+
+  /// Seats paid by scan at [now]; a trip that has timed out is an empty bus.
+  int takenAt(DateTime now) => seatsResetAt != null && now.isBefore(seatsResetAt!) ? seatsTaken.clamp(0, capacity) : 0;
+
+  /// About how many seats are free (cash riders aren't counted).
+  int seatsLeftAt(DateTime now) => capacity - takenAt(now);
+
+  /// Checked in at a park right now.
+  String? parkAt(DateTime now) => parkId != null && parkUntil != null && now.isBefore(parkUntil!) ? parkId : null;
+
+  static DateTime? _ms(Object? v) => v is num ? DateTime.fromMillisecondsSinceEpoch(v.toInt()) : null;
+
+  factory LiveBus.fromMap(String id, Map<String, dynamic> m) {
+    final trip = m['trip'] is Map ? Map<String, dynamic>.from(m['trip'] as Map) : null;
+    final park = m['park'] is Map ? Map<String, dynamic>.from(m['park'] as Map) : null;
+    return LiveBus(
+      id: id,
+      plate: m['plate'] as String? ?? '',
+      isBike: m['type'] == 'bike',
+      capacity: (m['capacity'] as num?)?.toInt() ?? 0,
+      seatsTaken: (m['seatsTaken'] as num?)?.toInt() ?? 0,
+      seatsResetAt: _ms(m['seatsResetAtMs']),
+      driverName: m['driverFirstName'] as String? ?? '',
+      rating: (m['rating'] as num?)?.toDouble(),
+      ratingCount: (m['ratingCount'] as num?)?.toInt() ?? 0,
+      fareRouteId: m['fareRouteId'] as String? ?? '',
+      fareRouteName: m['fareRouteName'] as String? ?? '',
+      fareKobo: (m['fareKobo'] as num?)?.toInt() ?? 0,
+      trip: trip == null || trip['fromName'] == null
+          ? null
+          : TripRoute(from: '${trip['fromName']}', to: '${trip['toName']}', etaMin: (trip['etaMin'] as num?)?.toInt() ?? 0),
+      parkId: park?['id'] as String?,
+      parkName: park?['name'] as String?,
+      parkSince: _ms(park?['atMs']),
+      parkUntil: _ms(park?['expiresAtMs']),
+    );
+  }
+}
+
+/// routes/{id}: a fare route, its stops and what one rider pays.
+class FareRoute {
+  const FareRoute({required this.id, required this.name, required this.stops, required this.fareKobo});
+  final String id, name;
+  final List<String> stops;
+  final int fareKobo;
+}

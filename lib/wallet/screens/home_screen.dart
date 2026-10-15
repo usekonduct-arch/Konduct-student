@@ -7,12 +7,12 @@ import '../../auth/auth_repository.dart';
 import '../../theme/tokens.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
-import '../../ui/web_screen.dart';
 import '../../messages/messages_ui.dart';
 import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'activity_screen.dart';
+import 'buses_screen.dart';
 import 'rate_sheet.dart';
 import 'scan_screen.dart';
 import 'settings_screen.dart';
@@ -37,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late Stream<List<Activity>> _activity;
   late Stream<bool> _paused;
   late Stream<List<Park>> _parks;
+  late Stream<List<LiveBus>> _buses;
   // A second listener for the "rate your ride" prompt (a stream can only be listened to once).
   late Stream<List<Activity>> _rateable;
   late final AppLifecycleListener _lifecycle;
@@ -66,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _activity = api.activity(limit: 30);
     _paused = api.paymentsPaused();
     _parks = api.parks();
+    _buses = api.buses();
     _rateable = api.activity(limit: 10);
   }
 
@@ -174,12 +176,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           AdCarousel(api: api.messages, actions: _actions, padding: const EdgeInsets.only(top: 18)),
                           StreamBuilder<List<Park>>(
                             stream: _parks,
-                            builder: (_, s) => (s.data ?? const []).isEmpty
-                                ? const SizedBox.shrink()
-                                : Padding(
-                                    padding: const EdgeInsets.only(top: 28),
-                                    child: ParksStrip(parks: s.data!),
-                                  ),
+                            builder: (_, parks) => StreamBuilder<List<LiveBus>>(
+                              stream: _buses,
+                              builder: (_, buses) => (parks.data ?? const []).isEmpty && (buses.data ?? const []).isEmpty
+                                  ? const SizedBox.shrink()
+                                  : Padding(
+                                      padding: const EdgeInsets.only(top: 28),
+                                      child: BusBoardStrip(api: api, parks: parks.data ?? const [], buses: buses.data ?? const []),
+                                    ),
+                            ),
                           ),
                           const SizedBox(height: 28),
                           Row(
@@ -429,105 +434,6 @@ class _Note extends StatelessWidget {
       ),
     );
   }
-}
-
-/// How many buses staff last counted at each park. Tapping a park with a map pin opens Maps.
-class ParksStrip extends StatelessWidget {
-  const ParksStrip({super.key, required this.parks});
-  final List<Park> parks;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = Palette.of(context);
-    final total = parks.fold(0, (t, x) => t + x.busCount);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Text('BUSES AT THE PARKS', style: KText.kicker(p.subtle)),
-            const Spacer(),
-            Text(total == 1 ? '1 bus' : '$total buses', style: KText.small(p.subtle)),
-          ],
-        ),
-        const SizedBox(height: 10),
-        LayoutBuilder(
-          builder: (context, c) {
-            // Two parks fill the row; more scroll sideways with the next one peeking in.
-            final width = parks.length <= 2 ? (c.maxWidth - 10 * (parks.length - 1)) / parks.length : (c.maxWidth - 10) / 2.2;
-            return SizedBox(
-              height: 150,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                itemCount: parks.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 10),
-                itemBuilder: (_, i) => SizedBox(width: width, child: _ParkCard(parks[i])),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _ParkCard extends StatelessWidget {
-  const _ParkCard(this.park);
-  final Park park;
-
-  @override
-  Widget build(BuildContext context) {
-    void openMap() => openWeb(context, 'https://www.google.com/maps/search/?api=1&query=${park.lat},${park.lng}', title: park.name);
-    final p = Palette.of(context);
-    final now = DateTime.now();
-    final stale = park.staleAt(now);
-    final updated = park.updatedAt == null ? 'Not counted yet' : 'Updated ${_lower(whenText(park.updatedAt!, now: now))}';
-    final card = Panel(
-      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('${park.busCount}', style: KText.title(p.text).copyWith(fontSize: 34)),
-              const SizedBox(width: 6),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(park.busCount == 1 ? 'bus' : 'buses', style: KText.small(p.subtle)),
-              ),
-              const Spacer(),
-              if (park.hasPin) Icon(Icons.map_rounded, size: 18, color: p.subtle),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            park.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: KText.body(p.text).copyWith(fontWeight: FontWeight.w800),
-          ),
-          Text(park.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: KText.small(p.subtle)),
-          const SizedBox(height: 4),
-          Text(
-            stale && park.updatedAt != null ? '$updated · may have changed' : updated,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: KText.small(stale ? K.coral : p.subtle).copyWith(fontSize: 11.5),
-          ),
-        ],
-      ),
-    );
-    return Semantics(
-      label: '${park.name}, ${park.busCount} ${park.busCount == 1 ? 'bus' : 'buses'}. $updated.',
-      button: park.hasPin,
-      excludeSemantics: true,
-      child: park.hasPin ? Pressable(scale: 0.97, onTap: openMap, child: card) : card,
-    );
-  }
-
-  static String _lower(String s) => s.isEmpty ? s : s[0].toLowerCase() + s.substring(1);
 }
 
 /// "How was your ride?" for the latest ride whose estimated time has passed and isn't rated yet.

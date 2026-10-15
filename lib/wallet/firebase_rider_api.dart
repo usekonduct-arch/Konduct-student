@@ -166,6 +166,28 @@ class FirebaseRiderApi implements RiderApi {
   Stream<List<Park>> parks() =>
       _db.collection('parks').where('active', isEqualTo: true).snapshots().map((q) => q.docs.map(_park).toList()..sort((a, b) => a.name.compareTo(b.name)));
 
+  @override
+  Stream<List<LiveBus>> buses() =>
+      keepListening(() => _db.collection('liveBuses').snapshots().map((q) => q.docs.map((d) => LiveBus.fromMap(d.id, d.data())).toList()));
+
+  @override
+  Stream<List<FareRoute>> routes() => _db
+      .collection('routes')
+      .where('active', isEqualTo: true)
+      .snapshots()
+      .map(
+        (q) => q.docs.map((d) {
+          final m = d.data();
+          return FareRoute(
+            id: d.id,
+            name: m['name'] as String? ?? d.id,
+            stops: (m['stops'] as List? ?? const []).map((s) => '$s').toList(),
+            fareKobo: (m['fareKobo'] as num?)?.toInt() ?? 0,
+          );
+        }).toList()
+          ..sort((a, b) => a.name.compareTo(b.name)),
+      );
+
   Park _park(QueryDocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data();
     final at = (m['busCountAtMs'] as num?)?.toInt();

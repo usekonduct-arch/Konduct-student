@@ -171,6 +171,8 @@ void main() {
 
   testWidgets('tapping a ride in the history prints its receipt, verified against the ledger', (t) async {
     await openHome(t);
+    await t.ensureVisible(find.descendant(of: find.byType(ActivityTile), matching: find.text('Hostels → Main gate')));
+    await settle(t, 300);
     await t.tap(find.descendant(of: find.byType(ActivityTile), matching: find.text('Hostels → Main gate')));
     await settle(t, 900);
     expect(find.text('CONNECTING'), findsOneWidget);
@@ -189,6 +191,8 @@ void main() {
     await settle(t, 900);
     await t.tap(find.text('Pay ₦1,000'));
     await settle(t, 1000);
+    await t.ensureVisible(find.descendant(of: find.byType(ActivityTile), matching: find.text('Wallet top-up')));
+    await settle(t, 300);
     await t.tap(find.descendant(of: find.byType(ActivityTile), matching: find.text('Wallet top-up')));
     await settle(t, 600);
     expect(find.text('Top-up pending'), findsOneWidget);
@@ -270,12 +274,56 @@ void main() {
     await done(t);
   });
 
-  testWidgets('home shows how many buses are at each park', (t) async {
+  testWidgets('home shows the buses checked in at each park and their free seats', (t) async {
     await openHome(t);
-    expect(find.text('BUSES AT THE PARKS'), findsOneWidget);
+    expect(find.text('BUSES NOW'), findsOneWidget);
     expect(find.text('Shasha park'), findsOneWidget);
     expect(find.text('Main Campus park'), findsOneWidget);
-    expect(find.text('6 buses'), findsOneWidget);
+    expect(find.text('7 seats free · to Main gate, Hostels'), findsOneWidget); // 5 + 2 free on two buses
+    expect(find.text('7 seats free · to Faculty of Science'), findsOneWidget);
+    await done(t);
+  });
+
+  testWidgets('the bus board lists the buses at each park, the ones on the road, and the routes', (t) async {
+    await openHome(t);
+    await t.ensureVisible(find.text('Shasha park'));
+    await t.tap(find.text('Shasha park'));
+    await settle(t, 1200);
+    expect(find.text('Buses & routes'), findsOneWidget);
+    expect(find.text('OS 482 KJA'), findsOneWidget);
+    expect(find.text('OS 117 EDE'), findsOneWidget);
+    expect(find.text('5 seats left'), findsOneWidget);
+    expect(find.text('2 seats left'), findsOneWidget);
+    expect(find.text('Shasha park → Hostels'), findsOneWidget);
+    expect(find.text('OS 233 OSG'), findsNothing);
+    expect(find.text('Directions to Shasha park'), findsOneWidget);
+
+    await t.ensureVisible(find.text('On the road · 1'));
+    await settle(t, 300);
+    await t.tap(find.text('On the road · 1'));
+    await settle(t, 600);
+    expect(find.text('OS 233 OSG'), findsOneWidget);
+    expect(find.text('Full'), findsOneWidget);
+    expect(find.text('OS 482 KJA'), findsNothing);
+
+    await t.ensureVisible(find.text('ROUTES & FARES'));
+    await settle(t, 300);
+    expect(find.text('₦150 a rider'), findsOneWidget);
+    expect(find.text('2 buses on this route now'), findsOneWidget); // Main gate → Faculty of Science
+    await done(t);
+  });
+
+  testWidgets('a payment takes a seat on the board straight away', (t) async {
+    await openHome(t);
+    await scanSample(t);
+    await t.tap(find.text('Pay ₦200'));
+    await settle(t, 2000);
+    await t.tap(find.text('Done'));
+    await settle(t, 900);
+    await t.ensureVisible(find.text('Buses & routes'));
+    await t.tap(find.text('Buses & routes'));
+    await settle(t, 1200);
+    expect(find.text('4 seats left'), findsOneWidget); // 2 already paid + this one, of 7
     await done(t);
   });
 
