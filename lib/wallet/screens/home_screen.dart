@@ -159,8 +159,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Hi, $name', style: KText.h3(p.text)),
-                                    Text(_greeting(), style: KText.small(p.subtle)),
+                                    Text('Hi, $name', style: KText.h3(p.text).copyWith(fontSize: 17), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    Text(_greeting(), style: KText.small(p.subtle).copyWith(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
                                   ],
                                 ),
                               ),

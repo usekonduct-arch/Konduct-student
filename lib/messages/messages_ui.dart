@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
@@ -46,11 +47,13 @@ class _NetImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = Palette.of(context);
-    return Image.network(
-      url,
+    // Kept on disk, so an ad seen once shows instantly on the next launch instead of downloading again.
+    return CachedNetworkImage(
+      imageUrl: url,
       fit: BoxFit.cover,
-      loadingBuilder: (_, child, progress) => progress == null ? child : ColoredBox(color: p.border.withValues(alpha: 0.4)),
-      errorBuilder: (_, _, _) => ColoredBox(
+      fadeInDuration: const Duration(milliseconds: 200),
+      placeholder: (_, _) => ColoredBox(color: p.border.withValues(alpha: 0.4)),
+      errorWidget: (_, _, _) => ColoredBox(
         color: p.border.withValues(alpha: 0.4),
         child: Center(child: Icon(Icons.image_not_supported_rounded, color: p.subtle)),
       ),
@@ -560,6 +563,17 @@ class _AdCarouselState extends State<AdCarousel> {
     });
   }
 
+  final _fetched = <String>{};
+
+  /// Starts every banner downloading now, so slides after the first are ready when they slide in.
+  void _prefetch(BuildContext context, List<Ad> ads) {
+    for (final ad in ads) {
+      if (ad.imageUrl.isNotEmpty && _fetched.add(ad.imageUrl)) {
+        precacheImage(CachedNetworkImageProvider(ad.imageUrl), context).catchError((_) {});
+      }
+    }
+  }
+
   @override
   void dispose() {
     _auto?.cancel();
@@ -578,6 +592,7 @@ class _AdCarouselState extends State<AdCarousel> {
         _count = ads.length;
         if (ads.isEmpty) return const SizedBox.shrink();
         if (_page >= ads.length) _page = 0;
+        _prefetch(context, ads);
         return Padding(
           padding: widget.padding,
           child: Column(
