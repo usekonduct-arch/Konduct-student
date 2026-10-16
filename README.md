@@ -20,7 +20,7 @@ On the team PC, use the real SDK at `C:\flutter\src\flutter\bin\flutter.bat` (th
 ## Demo mode
 
 `flutter run --dart-define=KONDUCT_DEMO=true` runs without Firebase on `DemoAuthRepository` and `DemoRiderApi`:
-any email signs up (`taken@konduct.app` plays an email already in use). Student ID `DUP123` plays an ID that is already registered.
+any email signs up (`taken@konduct.com.ng` plays an email already in use). Student ID `DUP123` plays an ID that is already registered.
 The wallet starts at ₦1,500, the scan screen "scans" a sample shuttle when tapped (₦200 a rider), the demo PIN is `2580`,
 sticker code `OFF000` plays an off-duty vehicle, and a top-up credits itself after two seconds.
 

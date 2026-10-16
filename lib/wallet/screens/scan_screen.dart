@@ -68,7 +68,7 @@ class _ScanScreenState extends State<ScanScreen> {
   void _onDetect(BarcodeCapture capture) {
     final raw = capture.barcodes.map((b) => b.rawValue).whereType<String>().firstOrNull;
     if (raw == null || _busy) return;
-    // A link sticker (https://konduct.app/pay/AB12CD) opens the app from any camera; here it's just the code.
+    // A link sticker (https://konduct.com.ng/pay/AB12CD) opens the app from any camera; here it's just the code.
     final link = AppIntents.linkFor(Uri.tryParse(raw.trim()));
     if (link != null && link.startsWith('app:pay/')) {
       _price(PaySource(code: link.substring(8).toUpperCase()));

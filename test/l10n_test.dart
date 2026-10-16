@@ -111,9 +111,9 @@ void main() {
   });
 
   group('links into the app', () {
-    test('konduct:// and konduct.app links become in-app screens', () {
+    test('konduct:// and konduct.com.ng links become in-app screens', () {
       expect(AppIntents.linkFor(Uri.parse('konduct://pay?code=AB12CD')), 'app:pay/AB12CD');
-      expect(AppIntents.linkFor(Uri.parse('https://konduct.app/pay/AB12CD')), 'app:pay/AB12CD');
+      expect(AppIntents.linkFor(Uri.parse('https://konduct.com.ng/pay/AB12CD')), 'app:pay/AB12CD');
       expect(AppIntents.linkFor(Uri.parse('konduct://scan')), 'app:scan');
       expect(AppIntents.linkFor(Uri.parse('konduct-widget://scan')), 'app:scan');
       expect(AppIntents.linkFor(Uri.parse('konduct://buses/shasha-park')), 'app:buses/shasha-park');
@@ -135,10 +135,10 @@ void main() {
   group('version check', () {
     test('below the minimum must update; below the latest may', () {
       final v = VersionCheck.instance..build = 5;
-      v.apply({'minBuild': 6, 'latestBuild': 8, 'updateUrl': 'https://konduct.app/get'});
+      v.apply({'minBuild': 6, 'latestBuild': 8, 'updateUrl': 'https://konduct.com.ng/get'});
       expect(v.mustUpdate, isTrue);
-      v.apply({'minBuild': 3, 'latestBuild': 8, 'updateUrl': 'https://konduct.app/get'});
-      expect((v.mustUpdate, v.canUpdate, v.updateUrl), (false, true, 'https://konduct.app/get'));
+      v.apply({'minBuild': 3, 'latestBuild': 8, 'updateUrl': 'https://konduct.com.ng/get'});
+      expect((v.mustUpdate, v.canUpdate, v.updateUrl), (false, true, 'https://konduct.com.ng/get'));
       v.apply({'minBuild': 3, 'latestBuild': 5, 'updateUrl': 'http://insecure.example'});
       expect((v.mustUpdate, v.canUpdate, v.updateUrl), (false, false, null));
       v.apply(null);

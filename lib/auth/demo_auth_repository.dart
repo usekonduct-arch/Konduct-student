@@ -3,7 +3,7 @@ import 'dart:async';
 import 'auth_repository.dart';
 
 /// Stand-in used without Firebase (`--dart-define=KONDUCT_DEMO=true`) so every screen can be
-/// tried on a device. Any email signs up; `taken@konduct.app` plays an email already in use.
+/// tried on a device. Any email signs up; `taken@konduct.com.ng` plays an email already in use.
 /// Signing in needs the password the account was created with in this session.
 /// Student ID "DUP123" plays an ID that is already registered.
 class DemoAuthRepository implements AuthRepository {
@@ -27,7 +27,7 @@ class DemoAuthRepository implements AuthRepository {
   @override
   Future<void> signUp(String email, String password) async {
     await _lag();
-    if (email == 'taken@konduct.app' || _accounts.containsKey(email)) {
+    if (email == 'taken@konduct.com.ng' || _accounts.containsKey(email)) {
       throw const AuthException('email-already-in-use', 'There\'s already an account with this email. Sign in instead.');
     }
     _accounts[email] = password;

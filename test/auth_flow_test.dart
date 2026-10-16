@@ -147,7 +147,7 @@ void main() {
     await t.pumpWidget(KonductApp(auth: auth, api: DemoRiderApi()));
     await settle(t, 2600);
 
-    await account(t, email: 'taken@konduct.app', password: 'whatever-123');
+    await account(t, email: 'taken@konduct.com.ng', password: 'whatever-123');
     expect(auth.stage, Stage.signedOut);
     expect(find.textContaining('already an account'), findsOneWidget);
 

@@ -9,9 +9,9 @@ abstract final class AppInfo {
   static const palette = Palette.rider;
   static const dark = false;
 
-  /// Links into the app: konduct://pay?code=AB12CD, https://konduct.app/pay/AB12CD (AndroidManifest.xml).
+  /// Links into the app: konduct://pay?code=AB12CD, https://konduct.com.ng/pay/AB12CD (AndroidManifest.xml).
   static const linkScheme = 'konduct';
-  static const linkHosts = {'konduct.app', 'www.konduct.app'};
+  static const linkHosts = {'konduct.com.ng', 'www.konduct.com.ng'};
 
   /// Screens a link, shortcut or widget may open (the home screen's app: actions).
   static const linkScreens = {'pay', 'scan', 'topup', 'buses', 'activity', 'account', 'withdraw', 'invite'};

@@ -35,14 +35,14 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="konduct"/>
             </intent-filter>
-            <!-- https://konduct.app/pay/AB12CD opens the app straight on the payment. Verified with
+            <!-- https://konduct.com.ng/pay/AB12CD opens the app straight on the payment. Verified with
                  konduct-landing/public/.well-known/assetlinks.json (needs the release key's SHA-256). -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="konduct.app" android:pathPrefix="/pay"/>
-                <data android:scheme="https" android:host="www.konduct.app" android:pathPrefix="/pay"/>
+                <data android:scheme="https" android:host="konduct.com.ng" android:pathPrefix="/pay"/>
+                <data android:scheme="https" android:host="www.konduct.com.ng" android:pathPrefix="/pay"/>
             </intent-filter>
             <!-- lib/app/intents.dart opens links itself; don't let Flutter push them as routes. -->
             <meta-data android:name="flutter_deeplinking_enabled" android:value="false"/>

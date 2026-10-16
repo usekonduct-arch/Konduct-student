@@ -9,7 +9,7 @@ import '../l10n/l10n.dart';
 import 'app_info.dart';
 
 /// Ways into a screen from outside the app: a long-press shortcut on the app icon, a link
-/// (konduct://pay?code=AB12CD, https://konduct.app/pay/AB12CD), or a tap on the home-screen widget.
+/// (konduct://pay?code=AB12CD, https://konduct.com.ng/pay/AB12CD), or a tap on the home-screen widget.
 /// Each becomes an `app:` link (messages_ui.dart openLink) that waits in [pending] until the home
 /// screen is up and signed in to open it.
 class AppIntents {
@@ -67,7 +67,7 @@ class AppIntents {
     if (u == null) return null;
     final https = u.scheme == 'https' && AppInfo.linkHosts.contains(u.host);
     if (u.scheme != AppInfo.linkScheme && u.scheme != 'konduct-widget' && !https) return null;
-    // konduct://pay?code=X has the screen as the host; https://konduct.app/pay/X has it as the path.
+    // konduct://pay?code=X has the screen as the host; https://konduct.com.ng/pay/X has it as the path.
     final parts = [if (!https && u.host.isNotEmpty) u.host, ...u.pathSegments.where((p) => p.isNotEmpty)];
     if (parts.isEmpty) return null;
     final screen = parts.first.toLowerCase();
