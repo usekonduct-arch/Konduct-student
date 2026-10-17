@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart' hide Text;
 
 import '../../l10n/text.dart';
@@ -107,6 +108,11 @@ Future<void> openRiderWrapped(BuildContext context, RiderApi api, DateTime month
   try {
     final results = await Future.wait([api.faresIn(month), api.faresIn(DateTime(month.year, month.month - 1))]);
     final brand = await api.messages.brand().first.timeout(const Duration(seconds: 4), onTimeout: () => const Brand());
+    final sponsor = await api.messages.wrappedSponsor(month).timeout(const Duration(seconds: 4), onTimeout: () => null);
+    // The share card is drawn off-screen into a picture: its logo has to be loaded first.
+    if (sponsor != null && sponsor.logoUrl.isNotEmpty && navigator.mounted) {
+      await precacheImage(CachedNetworkImageProvider(sponsor.logoUrl), navigator.context).catchError((_) {});
+    }
     if (results[0].isEmpty) {
       messenger.showSnackBar(SnackBar(content: Text('No rides in ${monthName(month)}, so no Wrapped yet.')));
       return;
@@ -117,7 +123,17 @@ Future<void> openRiderWrapped(BuildContext context, RiderApi api, DateTime month
         fullscreenDialog: true,
         builder: (_) => WrappedStory(
           slides: w.slides,
-          card: StoryCard(kicker: 'My ${monthName(month)} on Konduct', headline: 'Konduct\nWrapped', stats: w.stats, tags: brand.cardTags, style: StoryStyle.wrapped),
+          sponsor: sponsor,
+          tracker: api.messages.tracker,
+          card: StoryCard(
+            kicker: 'My ${monthName(month)} on Konduct',
+            headline: 'Konduct\nWrapped',
+            stats: w.stats,
+            tags: brand.cardTags,
+            style: StoryStyle.wrapped,
+            sponsorName: sponsor?.name ?? '',
+            sponsorLogoUrl: sponsor?.logoUrl ?? '',
+          ),
           caption: brand.caption('My ${monthName(month)} on Konduct: ${results[0].length} rides, zero cash.'),
           fileName: 'konduct-wrapped-${month.year}-${month.month}',
         ),

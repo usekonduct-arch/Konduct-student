@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 import '../l10n/text.dart';
+import '../messages/messages_api.dart';
 import '../theme/tokens.dart';
 import 'kit.dart';
 import 'share_card.dart';
+import 'sponsor.dart';
 
 const _monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -32,8 +36,12 @@ const wrappedColors = <(Color, Color)>[
 /// A month's Wrapped, played like a story: tap the right side for the next page, the left to go
 /// back, hold to pause. It moves on by itself every few seconds. The last page is the share card.
 class WrappedStory extends StatefulWidget {
-  const WrappedStory({super.key, required this.slides, required this.card, required this.caption, required this.fileName});
+  const WrappedStory({super.key, required this.slides, required this.card, required this.caption, required this.fileName, this.sponsor, this.tracker});
   final List<WrappedSlide> slides;
+
+  /// The month's sponsor: their badge on every page and the share card, counted for their report.
+  final WrappedSponsor? sponsor;
+  final AdTracker? tracker;
 
   /// The summary card shown last and shared as a picture.
   final Widget card;
@@ -58,6 +66,8 @@ class _WrappedStoryState extends State<WrappedStory> with SingleTickerProviderSt
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _start());
+    // Opening the story puts the sponsor's badge on screen: that's the view their report counts.
+    if (widget.sponsor case final s?) widget.tracker?.view('wrapped', s.month);
   }
 
   void _start() {
@@ -139,6 +149,7 @@ class _WrappedStoryState extends State<WrappedStory> with SingleTickerProviderSt
                       ],
                     ),
                   ),
+                  if (widget.sponsor case final s? when !_onCard) _SponsorStrip(sponsor: s, color: fg, tracker: widget.tracker),
                   Expanded(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 420),
@@ -223,7 +234,10 @@ class _CardPage extends StatelessWidget {
         KButton(
           label: 'Share my Wrapped',
           icon: Icons.share_rounded,
-          onTap: () => showShareCard(context, card: story.card, caption: story.caption, fileName: story.fileName, title: 'Share your Wrapped'),
+          onTap: () {
+            if (story.sponsor case final s?) story.tracker?.share('wrapped', s.month);
+            showShareCard(context, card: story.card, caption: story.caption, fileName: story.fileName, title: 'Share your Wrapped');
+          },
         ),
         const SizedBox(height: 8),
         TextButton(
@@ -233,4 +247,38 @@ class _CardPage extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// "Brought to you by" and the sponsor's logo, under a story's progress bars. Tapping it opens the
+/// sponsor's page, if they gave one.
+class _SponsorStrip extends StatelessWidget {
+  const _SponsorStrip({required this.sponsor, required this.color, this.tracker});
+  final WrappedSponsor sponsor;
+  final Color color;
+  final AdTracker? tracker;
+
+  @override
+  Widget build(BuildContext context) {
+    final strip = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Row(
+        children: [
+          Text('BROUGHT TO YOU BY', style: KText.kicker(color.withValues(alpha: 0.7)).copyWith(fontSize: 10)),
+          const SizedBox(width: 10),
+          SponsorLogo(url: sponsor.logoUrl, size: 30),
+          const SizedBox(width: 8),
+          Expanded(child: Text(sponsor.name, maxLines: 1, overflow: TextOverflow.ellipsis, translate: false, style: KText.body(color).copyWith(fontWeight: FontWeight.w800))),
+        ],
+      ),
+    );
+    if (sponsor.link.isEmpty) return strip;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        tracker?.tap('wrapped', sponsor.month);
+        launchUrl(Uri.parse(sponsor.link), mode: LaunchMode.externalApplication);
+      },
+      child: strip,
+    );
+  }
 }

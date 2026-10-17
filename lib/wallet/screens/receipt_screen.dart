@@ -5,6 +5,7 @@ import '../../l10n/text.dart';
 import '../../messages/voice.dart';
 import '../../theme/tokens.dart';
 import '../../ui/kit.dart';
+import '../../ui/sponsor.dart';
 import '../models.dart';
 import '../rider_api.dart';
 import '../wallet_ui.dart';
@@ -31,7 +32,10 @@ class ReceiptScreen extends StatefulWidget {
     this.driverName,
     this.balanceKobo,
     this.tripRoute,
-  });
+    int? riderPaidKobo,
+    this.sponsorName,
+    this.sponsorLogoUrl,
+  }) : riderPaidKobo = riderPaidKobo ?? totalKobo;
 
   factory ReceiptScreen.paid({required RiderApi api, required PayResult result, required Quote quote}) => ReceiptScreen._(
     api: api,
@@ -48,12 +52,20 @@ class ReceiptScreen extends StatefulWidget {
     status: 'completed',
     balanceKobo: result.balanceKobo,
     justPaid: true,
+    riderPaidKobo: result.riderPaidKobo,
+    sponsorName: result.sponsorName,
+    sponsorLogoUrl: result.sponsorLogoUrl,
   );
 
   final RiderApi api;
   final String txId, reference, offlineCode, routeName, plate, status;
   final String? driverName;
   final int totalKobo, passengers;
+
+  /// What left the rider's wallet; a sponsor paid the rest of [totalKobo].
+  final int riderPaidKobo;
+  final String? sponsorName, sponsorLogoUrl;
+  bool get sponsored => (sponsorName ?? '').isNotEmpty;
   final int? balanceKobo;
   final DateTime at;
   final TripRoute? tripRoute;
@@ -74,7 +86,9 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
       _pop.forward();
       // Said out loud, so the rider (and the driver beside them) hears that it went through.
       Voice.say(
-        'Payment successful. ${Voice.amount(widget.totalKobo)} paid${widget.passengers > 1 ? ' for ${widget.passengers} riders' : ''}.',
+        widget.riderPaidKobo == 0
+            ? 'Ride paid by ${widget.sponsorName}.'
+            : 'Payment successful. ${Voice.amount(widget.riderPaidKobo)} paid${widget.passengers > 1 ? ' for ${widget.passengers} riders' : ''}.',
         clip: 'sounds/voice_payment_success.wav',
       );
     }
@@ -105,6 +119,23 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
               ),
             ),
           if (widget.justPaid && !reversed) const SizedBox(height: 10),
+          if (widget.sponsored && !reversed) ...[
+            Entrance(
+              delay: const Duration(milliseconds: 180),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: K.yellow, borderRadius: BorderRadius.circular(20)),
+                child: Row(
+                  children: [
+                    SponsorLogo(url: widget.sponsorLogoUrl ?? '', size: 52),
+                    const SizedBox(width: 14),
+                    Expanded(child: Text('This ride was on ${widget.sponsorName}', style: KText.h3(K.ink))),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           if (!reversed && widget.offlineCode.isNotEmpty)
             Entrance(
               delay: const Duration(milliseconds: 250),
@@ -128,7 +159,12 @@ class _ReceiptScreenState extends State<ReceiptScreen> with SingleTickerProvider
             child: Panel(
               child: Column(
                 children: [
-                  _row(context, 'Amount', naira(widget.totalKobo), strike: reversed),
+                  if (widget.sponsored) ...[
+                    _row(context, 'Fare', naira(widget.totalKobo), strike: reversed),
+                    _row(context, 'Paid by ${widget.sponsorName}', naira(widget.totalKobo - widget.riderPaidKobo)),
+                    _row(context, 'You paid', naira(widget.riderPaidKobo), strike: reversed),
+                  ] else
+                    _row(context, 'Amount', naira(widget.totalKobo), strike: reversed),
                   _row(context, 'Riders', widget.passengers == 1 ? 'Just you' : 'You + ${widget.passengers - 1}'),
                   if (widget.driverName != null) _row(context, 'Driver', widget.driverName!),
                   if (widget.plate.isNotEmpty) _row(context, 'Vehicle', widget.plate),

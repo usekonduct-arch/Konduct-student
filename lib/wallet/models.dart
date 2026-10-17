@@ -37,10 +37,18 @@ class Quote {
     this.seatCapacity,
     this.seatsTaken = 0,
     this.tripRoute,
-  });
+    int? riderPaysKobo,
+    this.sponsored,
+  }) : riderPaysKobo = riderPaysKobo ?? totalKobo;
 
   final String quoteId, driverFirstName, plate, vehicleType, route;
   final int fareKobo, passengers, totalKobo, balanceKobo;
+
+  /// What leaves the rider's wallet: the total, less a sponsor's cover.
+  final int riderPaysKobo;
+
+  /// A sponsor paying the rider's own seat on this ride, if an offer is live.
+  final SponsorOffer? sponsored;
   final bool insufficient, needsPin, recentlyPaidThisVehicle, stickerChangedRecently;
   final DateTime expiresAt;
 
@@ -71,7 +79,7 @@ class Quote {
     passengers: passengers,
     totalKobo: totalKobo,
     balanceKobo: balance,
-    insufficient: balance < totalKobo,
+    insufficient: balance < riderPaysKobo,
     needsPin: needsPin,
     recentlyPaidThisVehicle: recentlyPaidThisVehicle,
     stickerChangedRecently: stickerChangedRecently,
@@ -79,6 +87,8 @@ class Quote {
     seatCapacity: seatCapacity,
     seatsTaken: seatsTaken,
     tripRoute: tripRoute,
+    riderPaysKobo: riderPaysKobo,
+    sponsored: sponsored,
   );
 
   factory Quote.fromMap(Map<String, dynamic> m) => Quote(
@@ -99,7 +109,27 @@ class Quote {
     seatCapacity: (m['seatCapacity'] as num?)?.toInt(),
     seatsTaken: (m['seatsTaken'] as num?)?.toInt() ?? 0,
     tripRoute: TripRoute.fromMap(m['tripRoute']),
+    riderPaysKobo: (m['riderPaysKobo'] as num?)?.toInt(),
+    sponsored: SponsorOffer.fromMap(m['sponsored']),
   );
+}
+
+/// A brand paying for the rider's seat (backend sponsors.ts): shown with its logo before paying.
+class SponsorOffer {
+  const SponsorOffer({required this.name, required this.logoUrl, required this.title, this.message = '', required this.coverKobo});
+  final String name, logoUrl, title, message;
+  final int coverKobo;
+
+  static SponsorOffer? fromMap(Object? m) {
+    if (m is! Map || m['name'] == null) return null;
+    return SponsorOffer(
+      name: '${m['name']}',
+      logoUrl: '${m['logoUrl'] ?? ''}',
+      title: '${m['title'] ?? ''}',
+      message: '${m['message'] ?? ''}',
+      coverKobo: (m['coverKobo'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 
 /// Where a bus is going on a trip, from one landmark to another, and about how long it takes.
@@ -144,10 +174,17 @@ class PayResult {
     required this.passengers,
     required this.balanceKobo,
     required this.offlineCode,
-  });
+    int? riderPaidKobo,
+    this.sponsorName,
+    this.sponsorLogoUrl,
+  }) : riderPaidKobo = riderPaidKobo ?? totalKobo;
 
   final String txId, reference, offlineCode;
   final int totalKobo, passengers, balanceKobo;
+
+  /// What left the rider's wallet; less than [totalKobo] when a sponsor paid a seat.
+  final int riderPaidKobo;
+  final String? sponsorName, sponsorLogoUrl;
 
   factory PayResult.fromMap(Map<String, dynamic> m) => PayResult(
     txId: m['txId'] as String,
@@ -156,6 +193,9 @@ class PayResult {
     passengers: (m['passengers'] as num).toInt(),
     balanceKobo: (m['balanceKobo'] as num).toInt(),
     offlineCode: m['offlineCode'] as String,
+    riderPaidKobo: (m['riderPaidKobo'] as num?)?.toInt(),
+    sponsorName: m['sponsorName'] as String?,
+    sponsorLogoUrl: m['sponsorLogoUrl'] as String?,
   );
 }
 
@@ -179,11 +219,23 @@ class Activity {
     this.tripRoute,
     this.rateFrom,
     this.rating,
-  });
+    int? fareTotalKobo,
+    this.sponsorName = '',
+    this.sponsorLogoUrl = '',
+  }) : fareTotalKobo = fareTotalKobo ?? amountKobo;
 
   final String id;
   final ActivityKind kind;
+
+  /// What moved in or out of the wallet. For a sponsored fare that's only the rider's share.
   final int amountKobo;
+
+  /// A fare's full price, sponsor's share included.
+  final int fareTotalKobo;
+
+  /// Fares a sponsor helped pay: who, with their logo.
+  final String sponsorName, sponsorLogoUrl;
+  bool get sponsored => sponsorName.isNotEmpty;
   final DateTime at;
 
   /// Fares: completed | reversed | refunded. Top-ups: creating | open | credited | expired | failed_to_open | ...
@@ -221,6 +273,9 @@ class Activity {
     tripRoute: tripRoute,
     rateFrom: rateFrom,
     rating: rating ?? this.rating,
+    fareTotalKobo: fareTotalKobo,
+    sponsorName: sponsorName,
+    sponsorLogoUrl: sponsorLogoUrl,
   );
 
   bool get isFare => kind == ActivityKind.fare;

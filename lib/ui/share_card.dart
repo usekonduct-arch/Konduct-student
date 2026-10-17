@@ -1,6 +1,7 @@
 import 'dart:io' show File;
 import 'dart:ui' as ui;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -129,8 +130,14 @@ class StoryCard extends StatelessWidget {
     this.stats = const [],
     this.tags = '',
     this.style = StoryStyle.ride,
+    this.sponsorName = '',
+    this.sponsorLogoUrl = '',
   });
   final String kicker, headline, tags;
+
+  /// A sponsor's "Brought to you by" badge (a sponsored Wrapped); empty for none. Precache the
+  /// logo before sharing, so it is in the picture.
+  final String sponsorName, sponsorLogoUrl;
 
   /// Smaller lines under the headline (a route's time, a date), shown as chips.
   final List<String> lines;
@@ -233,6 +240,24 @@ class StoryCard extends StatelessWidget {
                   ),
                 ],
                 const Spacer(),
+                if (sponsorName.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: K.ink.withValues(alpha: 0.08))),
+                    child: Row(
+                      children: [
+                        Text('BROUGHT TO YOU BY', style: KText.kicker(K.mute).copyWith(fontSize: 8.5, letterSpacing: 1.4)),
+                        const SizedBox(width: 10),
+                        if (sponsorLogoUrl.isNotEmpty) ...[
+                          SizedBox(width: 30, height: 30, child: Image(image: CachedNetworkImageProvider(sponsorLogoUrl), fit: BoxFit.contain)),
+                          const SizedBox(width: 8),
+                        ],
+                        Expanded(child: Text(sponsorName, maxLines: 1, overflow: TextOverflow.ellipsis, translate: false, style: KText.h3(K.ink).copyWith(fontSize: 14))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 Container(
                   height: 44,
                   padding: const EdgeInsets.symmetric(horizontal: 14),

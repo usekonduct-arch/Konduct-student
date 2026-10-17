@@ -182,7 +182,7 @@ class ActivityTile extends StatelessWidget {
         Icons.directions_bus_rounded,
         K.yellow,
         a.routeName.isEmpty ? 'Ride' : a.routeName,
-        [whenText(a.at), if (a.passengers > 1) '${a.passengers} riders', if (a.reversed) a.status == 'refunded' ? 'Refunded' : 'Undone'].join(' · '),
+        [whenText(a.at), if (a.passengers > 1) '${a.passengers} riders', if (a.sponsored) 'Paid by ${a.sponsorName}', if (a.reversed) a.status == 'refunded' ? 'Refunded' : 'Undone'].join(' · '),
       ),
       ActivityKind.topUp => (
         Icons.add_rounded,

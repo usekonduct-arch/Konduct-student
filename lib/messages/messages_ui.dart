@@ -574,9 +574,52 @@ class _AdCarouselState extends State<AdCarousel> {
     }
   }
 
+  // Viewability (backend adstats.ts): a slide counts as seen once at least half of it has been on
+  // screen for a full second, with the app in front and this screen on top. One count per visit:
+  // the slide sliding in again is a new visit.
+  Timer? _watch;
+  List<Ad> _shown = const [];
+  int _visitPage = -1;
+  DateTime? _visibleSince;
+  bool _counted = false;
+
+  void _checkView() {
+    if (!mounted || _shown.isEmpty) return;
+    final page = _page.clamp(0, _shown.length - 1);
+    if (page != _visitPage) {
+      _visitPage = page;
+      _visibleSince = null;
+      _counted = false;
+    }
+    if (_counted) return;
+    if (!_onScreen()) {
+      _visibleSince = null;
+      return;
+    }
+    final now = DateTime.now();
+    _visibleSince ??= now;
+    if (now.difference(_visibleSince!) >= const Duration(seconds: 1)) {
+      _counted = true;
+      widget.api.tracker.view('ad', _shown[page].id);
+    }
+  }
+
+  /// The app is in front, this screen is the top one, and half the banner is inside the screen.
+  bool _onScreen() {
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) return false;
+    if (ModalRoute.of(context)?.isCurrent == false) return false;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || !box.attached || box.size.isEmpty) return false;
+    final rect = box.localToGlobal(Offset.zero) & box.size;
+    final visible = rect.intersect(Offset.zero & MediaQuery.sizeOf(context));
+    if (visible.isEmpty || visible.width <= 0 || visible.height <= 0) return false;
+    return visible.width * visible.height >= 0.5 * rect.width * rect.height;
+  }
+
   @override
   void dispose() {
     _auto?.cancel();
+    _watch?.cancel();
     _pages.dispose();
     super.dispose();
   }
@@ -593,6 +636,8 @@ class _AdCarouselState extends State<AdCarousel> {
         if (ads.isEmpty) return const SizedBox.shrink();
         if (_page >= ads.length) _page = 0;
         _prefetch(context, ads);
+        _shown = ads;
+        _watch ??= Timer.periodic(const Duration(milliseconds: 250), (_) => _checkView());
         return Padding(
           padding: widget.padding,
           child: Column(
@@ -605,7 +650,7 @@ class _AdCarouselState extends State<AdCarousel> {
                     controller: _pages,
                     itemCount: ads.length,
                     onPageChanged: (i) => setState(() => _page = i),
-                    itemBuilder: (context, i) => _Banner(ad: ads[i], actions: widget.actions),
+                    itemBuilder: (context, i) => _Banner(ad: ads[i], actions: widget.actions, tracker: widget.api.tracker),
                   ),
                 ),
               ),
@@ -634,9 +679,16 @@ class _AdCarouselState extends State<AdCarousel> {
 }
 
 class _Banner extends StatelessWidget {
-  const _Banner({required this.ad, required this.actions});
+  const _Banner({required this.ad, required this.actions, required this.tracker});
   final Ad ad;
   final AppActions actions;
+  final AdTracker tracker;
+
+  void _open(BuildContext context, String link) {
+    tracker.tap('ad', ad.id);
+    openLink(context, link, actions);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cta = ad.buttons.isEmpty ? null : ad.buttons.first;
@@ -645,7 +697,7 @@ class _Banner extends StatelessWidget {
       label: tr(ad.title.isEmpty ? 'Advert' : 'Advert: ${ad.title}'),
       button: ad.link.isNotEmpty,
       child: GestureDetector(
-        onTap: ad.link.isEmpty ? null : () => openLink(context, ad.link, actions),
+        onTap: ad.link.isEmpty ? null : () => _open(context, ad.link),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -680,7 +732,7 @@ class _Banner extends StatelessWidget {
                     if (cta != null) ...[
                       const SizedBox(width: 10),
                       Pressable(
-                        onTap: () => openLink(context, cta.link, actions),
+                        onTap: () => _open(context, cta.link),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(color: K.yellow, borderRadius: BorderRadius.circular(18)),
@@ -773,9 +825,10 @@ class _MessagesHostState extends State<MessagesHost> {
       } else {
         await api.seen.add('ad:${ad!.id}');
         if (!mounted) return;
+        api.tracker.view('ad', ad.id);
         await showDialog<void>(
           context: context,
-          builder: (_) => _AdPopup(ad: ad, actions: widget.actions),
+          builder: (_) => _AdPopup(ad: ad, actions: widget.actions, tracker: api.tracker),
         );
       }
     } finally {
@@ -1000,13 +1053,15 @@ class _NoticePopup extends StatelessWidget {
 
 /// A popup ad: a 4:5 picture (1080 × 1350) with an optional title, text and up to two buttons.
 class _AdPopup extends StatelessWidget {
-  const _AdPopup({required this.ad, required this.actions});
+  const _AdPopup({required this.ad, required this.actions, required this.tracker});
   final Ad ad;
   final AppActions actions;
+  final AdTracker tracker;
   @override
   Widget build(BuildContext context) {
     final p = Palette.of(context);
     void go(String link) {
+      tracker.tap('ad', ad.id);
       Navigator.of(context).pop();
       openLink(context, link, actions);
     }

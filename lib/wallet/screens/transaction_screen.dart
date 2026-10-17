@@ -205,7 +205,8 @@ Slip slipFor(Activity a, ReceiptProof? proof, String? problem) {
   );
   switch (a.kind) {
     case ActivityKind.fare:
-      final each = a.passengers <= 0 ? a.amountKobo : a.amountKobo ~/ a.passengers;
+      // The full fare per rider; a sponsor may have paid some of it (shown as its own line).
+      final each = a.passengers <= 0 ? a.fareTotalKobo : a.fareTotalKobo ~/ a.passengers;
       return Slip(
         heading: 'Ride fare',
         amount: naira(a.amountKobo),
@@ -222,8 +223,18 @@ Slip slipFor(Activity a, ReceiptProof? proof, String? problem) {
           if (a.offlineCode.isNotEmpty && !a.reversed) SlipLine('Offline code', a.offlineCode.split('').join(' ')),
           if (a.rating != null) SlipLine('Your rating', '${'★' * a.rating!}${'☆' * (5 - a.rating!)}'),
         ],
-        totals: [SlipLine('Fare', '${a.passengers} × ${naira(each)}'), if (after != null && !a.reversed) SlipLine('Wallet after', naira(after))],
-        status: a.reversed ? (a.status == 'refunded' ? 'Refunded to wallet' : 'Undone, money returned') : 'Paid by wallet',
+        totals: [
+          SlipLine('Fare', '${a.passengers} × ${naira(each)}'),
+          if (a.sponsored) SlipLine('Paid by ${a.sponsorName}', naira(a.fareTotalKobo - a.amountKobo)),
+          if (after != null && !a.reversed && a.amountKobo > 0) SlipLine('Wallet after', naira(after)),
+        ],
+        status: a.reversed
+            ? (a.status == 'refunded' ? 'Refunded to wallet' : 'Undone, money returned')
+            : !a.sponsored
+            ? 'Paid by wallet'
+            : a.amountKobo == 0
+            ? 'Paid by ${a.sponsorName}'
+            : 'Paid by wallet and ${a.sponsorName}',
         seal: seal,
         verifyUrl: common.verifyUrl,
         fingerprint: common.fingerprint,

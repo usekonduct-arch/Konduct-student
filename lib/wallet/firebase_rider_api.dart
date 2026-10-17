@@ -137,7 +137,11 @@ class FirebaseRiderApi implements RiderApi {
     return Activity(
       id: id,
       kind: ActivityKind.fare,
-      amountKobo: (m['totalKobo'] as num?)?.toInt() ?? 0,
+      // The wallet moved only the rider's share; a sponsor may have paid the rest.
+      amountKobo: (m['riderPaidKobo'] as num?)?.toInt() ?? (m['totalKobo'] as num?)?.toInt() ?? 0,
+      fareTotalKobo: (m['totalKobo'] as num?)?.toInt(),
+      sponsorName: (m['sponsor'] as Map?)?['name'] as String? ?? '',
+      sponsorLogoUrl: (m['sponsor'] as Map?)?['logoUrl'] as String? ?? '',
       at: DateTime.fromMillisecondsSinceEpoch((m['createdAtMs'] as num?)?.toInt() ?? 0),
       status: m['status'] as String? ?? 'completed',
       reference: m['reference'] as String? ?? '',

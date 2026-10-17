@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -145,6 +148,149 @@ abstract class MessagesApi {
 
   /// Tells the backend the app's language, so push notifications arrive in it too.
   Future<void> setLanguage(String code) async {}
+
+  /// Counts ad views, taps and shares for sponsors' reports (backend adstats.ts).
+  AdTracker get tracker => AdTracker.none;
+
+  /// The sponsor of [month]'s Wrapped, if any (wrappedSponsors/{YYYY-MM}).
+  Future<WrappedSponsor?> wrappedSponsor(DateTime month) async => null;
+}
+
+/// "Your month on Konduct, brought to you by …": a brand's logo on a month's Wrapped.
+class WrappedSponsor {
+  const WrappedSponsor({required this.month, required this.name, required this.logoUrl, this.message = '', this.link = ''});
+
+  /// "2026-10": also the id its views and shares are counted under.
+  final String month;
+  final String name, logoUrl, message, link;
+
+  static String monthKey(DateTime m) => '${m.year}-${m.month.toString().padLeft(2, '0')}';
+
+  static WrappedSponsor? fromMap(String month, Map<String, dynamic>? m) {
+    if (m == null || m['active'] != true || '${m['sponsorName'] ?? ''}'.isEmpty) return null;
+    return WrappedSponsor(
+      month: month,
+      name: '${m['sponsorName']}',
+      logoUrl: '${m['logoUrl'] ?? ''}',
+      message: '${m['message'] ?? ''}',
+      link: '${m['link'] ?? ''}',
+    );
+  }
+}
+
+/// What a sponsor is told, counted on the phone and checked on the server (backend adstats.ts):
+/// a view is an ad on screen for a second in the open app; a tap, a tap on it; a share, a shared
+/// Wrapped carrying the sponsor's badge. Events wait on the phone (they survive the app closing
+/// and going offline) and go up in batches. Each batch keeps one id until the server has it, so a
+/// retry after a dropped connection is never counted twice.
+class AdTracker with WidgetsBindingObserver {
+  AdTracker(this._send) {
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_restore());
+  }
+
+  AdTracker._none() : _send = null;
+
+  /// Counts nothing: demo mode and tests.
+  static final none = AdTracker._none();
+
+  final Future<void> Function(String batchId, List<Map<String, Object>> events)? _send;
+  static const _queueKey = 'konduct.adQueue.v1';
+  static const _batchKey = 'konduct.adBatch.v1';
+  static final bool _memoryOnly = !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
+
+  final _queue = <Map<String, Object>>[];
+  // The batch on its way up: retried with the same id until the server confirms it.
+  (String, List<Map<String, Object>>)? _inFlight;
+  Timer? _timer;
+  bool _sending = false;
+
+  void view(String target, String id) => _add(target, id, 'view');
+  void tap(String target, String id) => _add(target, id, 'tap');
+  void share(String target, String id) => _add(target, id, 'share');
+
+  void _add(String target, String id, String kind) {
+    if (_send == null || id.isEmpty) return;
+    _queue.add({'t': target, 'id': id, 'k': kind, 'at': DateTime.now().millisecondsSinceEpoch});
+    // Older than the server accepts (3 days) can go; a phone offline that long has bigger worries.
+    final cutoff = DateTime.now().subtract(const Duration(hours: 71)).millisecondsSinceEpoch;
+    _queue.removeWhere((e) => (e['at'] as int) < cutoff);
+    if (_queue.length > 500) _queue.removeRange(0, _queue.length - 500);
+    unawaited(_save());
+    if (_queue.length >= 40) {
+      unawaited(flush());
+    } else {
+      _timer ??= Timer(const Duration(seconds: 20), () {
+        _timer = null;
+        unawaited(flush());
+      });
+    }
+  }
+
+  /// Sends what's waiting. Safe to call any time; a failure keeps everything for next time.
+  Future<void> flush() async {
+    final send = _send;
+    if (send == null || _sending) return;
+    _sending = true;
+    try {
+      while (true) {
+        if (_inFlight == null) {
+          if (_queue.isEmpty) break;
+          final take = _queue.take(60).toList();
+          _queue.removeRange(0, take.length);
+          _inFlight = (_newBatchId(), take);
+          await _save();
+        }
+        final (id, events) = _inFlight!;
+        await send(id, events);
+        _inFlight = null;
+        await _save();
+      }
+    } catch (e) {
+      debugPrint('ad tracking will retry: $e');
+    } finally {
+      _sending = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.resumed) unawaited(flush());
+  }
+
+  static String _newBatchId() {
+    final r = Random.secure();
+    return List.generate(24, (_) => 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[r.nextInt(62)]).join();
+  }
+
+  Future<void> _save() async {
+    if (_memoryOnly) return;
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString(_queueKey, jsonEncode(_queue));
+      final b = _inFlight;
+      if (b == null) {
+        await p.remove(_batchKey);
+      } else {
+        await p.setString(_batchKey, jsonEncode({'id': b.$1, 'events': b.$2}));
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _restore() async {
+    if (_memoryOnly) return;
+    try {
+      final p = await SharedPreferences.getInstance();
+      List<Map<String, Object>> events(Object? list) => [for (final e in (list as List? ?? const []).whereType<Map>()) e.cast<String, Object>()];
+      _queue.insertAll(0, events(jsonDecode(p.getString(_queueKey) ?? '[]')));
+      final b = p.getString(_batchKey);
+      if (b != null) {
+        final m = jsonDecode(b) as Map;
+        _inFlight = ('${m['id']}', events(m['events']));
+      }
+      if (_queue.isNotEmpty || _inFlight != null) unawaited(flush());
+    } catch (_) {}
+  }
 }
 
 /// Konduct's accounts to tag when sharing. Empty handles are left out of captions.

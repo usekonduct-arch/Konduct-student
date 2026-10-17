@@ -588,7 +588,7 @@ class _LowBalance extends StatelessWidget {
 
   /// The usual fare for one rider, or null with no rides yet.
   static int? usualFare(List<Activity> items) {
-    final each = [for (final a in items) if (a.isFare && a.status == 'completed' && a.passengers > 0) a.amountKobo ~/ a.passengers]..sort();
+    final each = [for (final a in items) if (a.isFare && a.status == 'completed' && a.passengers > 0) a.fareTotalKobo ~/ a.passengers]..sort();
     return each.isEmpty ? null : each[each.length ~/ 2];
   }
 

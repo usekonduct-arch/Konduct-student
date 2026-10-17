@@ -23,6 +23,30 @@ class FirebaseMessagesApi extends MessagesApi {
   Stream<Brand> brand() => _db.doc('config/brand').snapshots().map((s) => Brand.fromMap(s.data())).handleError((_) {});
 
   @override
+  late final AdTracker tracker = AdTracker((batchId, events) async {
+    try {
+      // sentAt lets the server correct for a phone whose clock is off.
+      await _callable('trackAds').call<Object?>({'batchId': batchId, 'sentAt': DateTime.now().millisecondsSinceEpoch, 'events': events});
+    } on FirebaseFunctionsException catch (e) {
+      // A batch the server will never accept is dropped; anything else is retried later.
+      if (e.code == 'invalid-argument' || e.code == 'permission-denied' || e.code == 'unauthenticated') return;
+      rethrow;
+    }
+  });
+
+  @override
+  Future<WrappedSponsor?> wrappedSponsor(DateTime month) async {
+    final key = WrappedSponsor.monthKey(month);
+    try {
+      // The rules only let a member read an active sponsorship for their group; anything else is "none".
+      final s = await _db.doc('wrappedSponsors/$key').get();
+      return WrappedSponsor.fromMap(key, s.data());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
   Stream<List<Notice>> notices() {
     final personal = _db
         .collection('users/$_uid/notifications')

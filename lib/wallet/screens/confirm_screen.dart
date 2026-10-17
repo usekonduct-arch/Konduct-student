@@ -10,6 +10,7 @@ import '../../security/biometric.dart';
 import '../../theme/tokens.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
+import '../../ui/sponsor.dart';
 import '../models.dart';
 import '../recent_vehicles.dart';
 import '../rider_api.dart';
@@ -131,7 +132,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
           if (again != null) await _confirm(pin: again, repeat: repeat);
         case 'repeat_scan':
           if (await _askRepeat() == true) await _confirm(pin: pin, repeat: true);
-        case 'quote_expired' || 'quote_used' || 'fare_changed' || 'vehicle_changed':
+        case 'quote_expired' || 'quote_used' || 'fare_changed' || 'vehicle_changed' || 'offer_ended':
           showSnack(context, e.message);
           await _reprice();
         case 'insufficient_funds':
@@ -175,7 +176,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
   );
 
   Future<void> _topUp() async {
-    await pushScreen(context, TopUpScreen(api: api, suggestKobo: _q.totalKobo - _q.balanceKobo));
+    await pushScreen(context, TopUpScreen(api: api, suggestKobo: _q.riderPaysKobo - _q.balanceKobo));
     if (mounted) await _reprice();
   }
 
@@ -192,6 +193,10 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_q.sponsored case final s?) ...[
+            Entrance(child: SponsorBanner(name: s.name, logoUrl: s.logoUrl, title: s.title, message: s.message)),
+            const SizedBox(height: 12),
+          ],
           Entrance(
             delay: const Duration(milliseconds: 100),
             child: Panel(
@@ -263,21 +268,25 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
                     child: Divider(height: 1, color: p.border),
                   ),
                   _line(context, 'Fare', '${naira(_q.fareKobo)} × ${_q.passengers}'),
+                  if (_q.sponsored case final s?) ...[
+                    const SizedBox(height: 8),
+                    _line(context, 'Paid by ${s.name}', '−${naira(s.coverKobo)}'),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Text('Total', style: KText.h3(p.text)),
+                      Text(_q.sponsored == null ? 'Total' : 'You pay', style: KText.h3(p.text)),
                       const Spacer(),
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 260),
                         child: _repricing
                             ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.6, color: K.yellowDeep))
-                            : Text(naira(_q.totalKobo), key: ValueKey(_q.totalKobo), style: KText.title(p.text).copyWith(fontSize: 30)),
+                            : Text(naira(_q.riderPaysKobo), key: ValueKey(_q.riderPaysKobo), style: KText.title(p.text).copyWith(fontSize: 30)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  _line(context, 'Wallet after', _q.insufficient ? 'Not enough' : naira(_q.balanceKobo - _q.totalKobo), warn: _q.insufficient),
+                  _line(context, 'Wallet after', _q.insufficient ? 'Not enough' : naira(_q.balanceKobo - _q.riderPaysKobo), warn: _q.insufficient),
                 ],
               ),
             ),
@@ -293,7 +302,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
             const SizedBox(height: 12),
             _Warn(
               icon: Icons.account_balance_wallet_rounded,
-              text: 'You have ${naira(_q.balanceKobo)}. Top up at least ${naira(_q.totalKobo - _q.balanceKobo)} to pay this fare.',
+              text: 'You have ${naira(_q.balanceKobo)}. Top up at least ${naira(_q.riderPaysKobo - _q.balanceKobo)} to pay this fare.',
             ),
           ],
           ErrorLine(_error),
@@ -323,7 +332,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
     if (_q.insufficient) return KButton(label: 'Top up to pay', icon: Icons.add_rounded, onTap: _busy ? null : _topUp);
     if (_expired) return KButton(label: 'Refresh price', loading: _repricing, onTap: _reprice);
     return KButton(
-      label: 'Pay ${naira(_q.totalKobo)}',
+      label: _q.riderPaysKobo == 0 ? 'Ride free' : 'Pay ${naira(_q.riderPaysKobo)}',
       icon: _q.needsPin ? Icons.lock_rounded : Icons.arrow_forward_rounded,
       loading: _busy,
       onTap: _repricing ? null : _pay,
