@@ -7,6 +7,7 @@ import 'package:quick_actions/quick_actions.dart';
 
 import '../l10n/l10n.dart';
 import 'app_info.dart';
+import 'pwa.dart';
 
 /// Ways into a screen from outside the app: a long-press shortcut on the app icon, a link
 /// (konduct://pay?code=AB12CD, https://konduct.com.ng/pay/AB12CD), or a tap on the home-screen widget.
@@ -24,8 +25,16 @@ class AppIntents {
   /// Reads the link or shortcut that launched the app and listens for more. Never throws:
   /// every source is optional.
   Future<void> start() async {
-    if (_started || kIsWeb) return;
+    if (_started) return;
     _started = true;
+    if (kIsWeb) {
+      // The installed web app's shortcuts (web/manifest.json) open ./?action=scan and the like.
+      Pwa.start();
+      final action = Uri.base.queryParameters['action']?.toLowerCase();
+      if (action != null && AppInfo.linkScreens.contains(action)) _take('app:$action');
+      Pwa.forgetLaunchQuery();
+      return;
+    }
     if (defaultTargetPlatform != TargetPlatform.android && defaultTargetPlatform != TargetPlatform.iOS) return;
 
     try {

@@ -989,4 +989,17 @@ const haStrings = <String, String>{
   'Privacy Policy': 'Manufar Sirri',
   'Account deletion': 'Goge asusu',
   'I have read and agree to the Terms of Service, Privacy Policy and Account Deletion Policy.': 'Na karanta kuma na amince da Sharuɗɗan Sabis, Manufar Sirri da Manufar Goge Asusu.',
+  // The web app (PWA).
+  'Pay on Bachs\'s secure page': 'Ku biya a shafin Bachs mai tsaro',
+  'It opens in a new tab. Pay there, then come back here.': 'Zai buɗe a sabon shafi. Ku biya a can, sannan ku dawo nan.',
+  'Open payment page': 'Buɗe shafin biya',
+  'I\'ve paid': 'Na biya',
+  'Add Konduct to your home screen.': 'Ku saka Konduct a home screen ɗinku.',
+  'Install': 'Saka',
+  'Add Konduct to your Home Screen: tap Share, then Add to Home Screen.': 'Ku saka Konduct a Home Screen ɗinku: ku taɓa Share, sannan Add to Home Screen.',
+  'When you pay, top up or get a message.': 'Idan kun biya, kun ƙara kuɗi ko kun sami saƙo.',
+  'Notifications are on.': 'An kunna sanarwa.',
+  'Notifications are blocked. Allow them for this site in your browser settings.': 'An toshe sanarwa. Ku ba da izini ga wannan shafin a settings na burauzarku.',
+  'On iPhone, add Konduct to your Home Screen first, then turn notifications on here.': 'A iPhone, ku fara saka Konduct a Home Screen ɗinku, sannan ku kunna sanarwa a nan.',
+  'To turn them off, use your browser\'s settings for this site.': 'Don kashe su, ku yi amfani da settings na burauzarku na wannan shafin.',
 };

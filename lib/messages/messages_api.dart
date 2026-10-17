@@ -109,6 +109,10 @@ class Ad {
   }
 }
 
+/// Notifications in the web app: [needsInstall] is Safari on an iPhone, which only allows them
+/// once Konduct is on the Home Screen.
+enum WebPush { off, on, blocked, needsInstall }
+
 /// A push the person tapped, or one that arrived while the app was in front.
 class PushEvent {
   const PushEvent({required this.title, required this.body, required this.kind, this.link, this.popup = false, this.tapped = false, this.data = const {}});
@@ -134,7 +138,16 @@ abstract class MessagesApi {
   Stream<List<Ad>> ads();
 
   /// Asks for permission to notify and registers this phone for push. Safe to call again.
+  /// In the web app it only registers once the person has turned notifications on ([enableWebPush]).
   Future<void> startPush();
+
+  /// Web app only: where notifications stand in this browser; null when there's nothing to offer
+  /// (the phone apps, demo mode, a browser without push).
+  Future<WebPush?> webPush() async => null;
+
+  /// Web app only: asks the browser to allow notifications, then registers for push. Browsers
+  /// (Safari above all) only ask from a tap, so call it straight from one.
+  Future<WebPush?> enableWebPush() async => null;
 
   /// Pushes that arrive while the app is open, and ones the person tapped.
   Stream<PushEvent> pushes();

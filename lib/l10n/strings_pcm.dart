@@ -989,4 +989,17 @@ const pcmStrings = <String, String>{
   'Privacy Policy': 'Privacy Policy',
   'Account deletion': 'How to delete account',
   'I have read and agree to the Terms of Service, Privacy Policy and Account Deletion Policy.': 'I don read and I agree to the Terms of Service, Privacy Policy and the rules for deleting account.',
+  // The web app (PWA).
+  'Pay on Bachs\'s secure page': 'Pay for Bachs secure page',
+  'It opens in a new tab. Pay there, then come back here.': 'E go open for new tab. Pay for there, then come back here.',
+  'Open payment page': 'Open payment page',
+  'I\'ve paid': 'I don pay',
+  'Add Konduct to your home screen.': 'Put Konduct for your home screen.',
+  'Install': 'Install',
+  'Add Konduct to your Home Screen: tap Share, then Add to Home Screen.': 'Put Konduct for your Home Screen: tap Share, then Add to Home Screen.',
+  'When you pay, top up or get a message.': 'When you pay, top up or get message.',
+  'Notifications are on.': 'Notifications don on.',
+  'Notifications are blocked. Allow them for this site in your browser settings.': 'Dem block notifications. Allow am for dis site for your browser settings.',
+  'On iPhone, add Konduct to your Home Screen first, then turn notifications on here.': 'For iPhone, put Konduct for your Home Screen first, then on notifications here.',
+  'To turn them off, use your browser\'s settings for this site.': 'To off dem, use your browser settings for dis site.',
 };

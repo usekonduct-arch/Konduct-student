@@ -1,7 +1,7 @@
 name: konduct_student
 description: "Konduct for students: pay campus rides with a scan."
 publish_to: 'none'
-version: 0.2.0+2
+version: 0.3.0+3
 
 environment:
   sdk: ^3.10.3
@@ -33,6 +33,8 @@ dependencies:
   home_widget: ^0.10.0
   app_links: ^7.0.0
   cached_network_image: ^3.4.1
+  # Browser APIs for the web app (install prompt), used only in lib/app/pwa_web.dart.
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -75,6 +77,14 @@ flutter:
           weight: 700
         - asset: assets/fonts/NotoSans-800.ttf
           weight: 800
+    # The few symbols no brand font has: ⇄ on the bus's route board, and ★ ☆ in ratings. Bundled
+    # (Noto, same licence) so a browser draws them the same as a phone, without fetching fonts.
+    - family: NotoSansMath
+      fonts:
+        - asset: assets/fonts/NotoSansMath-400.ttf
+    - family: NotoSansSymbols2
+      fonts:
+        - asset: assets/fonts/NotoSansSymbols2-400.ttf
     - family: JetBrainsMono
       fonts:
         - asset: assets/fonts/JetBrainsMono-500.ttf

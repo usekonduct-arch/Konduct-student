@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show File, Platform;
+import 'dart:io' show Platform;
 import 'dart:ui' as ui;
 
 import 'package:audioplayers/audioplayers.dart';
@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:qr_flutter/qr_flutter.dart';
@@ -17,6 +16,7 @@ import '../l10n/l10n.dart';
 import '../l10n/text.dart';
 import '../theme/tokens.dart';
 import 'kit.dart';
+import 'share_file.dart';
 
 /// The rubber stamp on a printed receipt.
 enum SlipSeal {
@@ -215,13 +215,11 @@ class _ReceiptPrinterState extends State<ReceiptPrinter> with TickerProviderStat
       final pdf = kind == 'pdf';
       final shot = await _snapshot(background: pdf ? Colors.white : K.ink);
       final bytes = pdf ? await receiptPdf(shot.png, shot.width, shot.height, title: _slip?.heading ?? 'Receipt') : shot.png;
-      final dir = await getTemporaryDirectory();
       final name = widget.fileName.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '-');
-      final file = File('${dir.path}/$name.${pdf ? 'pdf' : 'png'}');
-      await file.writeAsBytes(bytes, flush: true);
+      final file = await shareFile(bytes, name: '$name.${pdf ? 'pdf' : 'png'}', mimeType: pdf ? 'application/pdf' : 'image/png');
       await SharePlus.instance.share(
         ShareParams(
-          files: [XFile(file.path, mimeType: pdf ? 'application/pdf' : 'image/png')],
+          files: [file],
           subject: 'Konduct receipt',
           sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
         ),

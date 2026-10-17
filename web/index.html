@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Replaced by `flutter build web --base-href`; the app is served from the root. -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="description" content="Konduct for students: pay campus rides with a scan. The same app as the Android one, in your browser.">
+  <title>Konduct</title>
+
+  <!-- Installable app (PWA). iPhones: Share, then Add to Home Screen. -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#F4F3EC">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Konduct">
+  <!-- "default" keeps the page below the status bar, so nothing sits under the notch. -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #0E1115;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    /* Shown until Flutter draws its first frame: the splash screen's opening pose. */
+    #loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0E1115;
+      transition: opacity .25s ease;
+      z-index: 10;
+    }
+    #loader.gone { opacity: 0; pointer-events: none; }
+    #loader svg { width: 92px; height: 92px; animation: breathe 1.6s ease-in-out infinite; }
+    #loader .bar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 90px;
+      height: 3px;
+      overflow: hidden;
+    }
+    #loader .bar::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 40%;
+      border-radius: 2px;
+      background: rgba(255, 199, 0, .4);
+      animation: drive 1.4s cubic-bezier(.65, 0, .35, 1) infinite;
+    }
+    @keyframes breathe { 50% { transform: scale(.94); } }
+    @keyframes drive { from { left: -40%; } to { left: 100%; } }
+    @media (prefers-reduced-motion: reduce) {
+      #loader svg, #loader .bar::after { animation: none; }
+    }
+    noscript { color: #F4F3EC; font: 16px/1.5 system-ui, sans-serif; display: block; padding: 32px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div id="loader" aria-label="Loading Konduct" role="progressbar">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#FFC700"/><path d="M17 13h10v17l15-17h12L37 32l18 21H42L27 35v18H17z" fill="#0E1115"/></svg>
+    <div class="bar"></div>
+  </div>
+  <noscript>Konduct needs JavaScript. Turn it on in your browser settings, then reload.</noscript>
+  <script>
+    // Chrome's "install app" offer fires once, often before the app has started: keep it for the
+    // Install button (lib/app/pwa_web.dart).
+    window.konductInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.konductInstallPrompt = e;
+      window.dispatchEvent(new Event('konduct-installable'));
+    });
+    window.addEventListener('appinstalled', function () {
+      window.konductInstallPrompt = null;
+      window.dispatchEvent(new Event('konduct-installable'));
+    });
+    window.addEventListener('flutter-first-frame', function () {
+      var l = document.getElementById('loader');
+      if (!l) return;
+      l.classList.add('gone');
+      setTimeout(function () { l.remove(); }, 300);
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

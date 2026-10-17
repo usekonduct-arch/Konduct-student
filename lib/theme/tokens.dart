@@ -17,8 +17,9 @@ abstract final class K {
   static const coral = Color(0xFFFF5A3C);
   static const sky = Color(0xFFBFE3F2);
 
-  /// Letters the brand fonts don't have (Yoruba ẹ ọ ṣ with tone marks, Hausa ɓ ɗ ƙ ƴ, ₦) come from here.
-  static const fallback = ['NotoSansLatin'];
+  /// Letters the brand fonts don't have (Yoruba ẹ ọ ṣ with tone marks, Hausa ɓ ɗ ƙ ƴ, ₦) come from here,
+  /// then the symbols ⇄ ★ ☆.
+  static const fallback = ['NotoSansLatin', 'NotoSansMath', 'NotoSansSymbols2'];
 
   static const display = 'Bricolage';
   static const body = 'Figtree';

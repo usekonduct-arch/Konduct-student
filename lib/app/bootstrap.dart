@@ -18,6 +18,7 @@ import '../wallet/firebase_rider_api.dart';
 import '../wallet/rider_api.dart';
 import '../l10n/l10n.dart';
 import '../ui/app_shell.dart';
+import '../ui/web_frame.dart';
 import 'app_info.dart';
 import 'connection.dart';
 import 'home_widget_sync.dart';
@@ -26,8 +27,11 @@ import 'version_check.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  // In a browser the page can't lock the screen; the web manifest asks for portrait instead.
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
 
   // The saved language, before the first frame, so nothing flashes in English first.
   await L10n.instance.load();
@@ -37,7 +41,8 @@ Future<void> bootstrap() async {
   final RiderApi api;
   if (options != null) {
     await Firebase.initializeApp(options: options);
-    _reportCrashes();
+    // Crashlytics has no web version.
+    if (!kIsWeb) _reportCrashes();
     repo = FirebaseAuthRepository();
     api = FirebaseRiderApi();
   } else {
@@ -76,7 +81,7 @@ class KonductApp extends StatelessWidget {
           title: AppInfo.name,
           debugShowCheckedModeBanner: false,
           theme: buildTheme(AppInfo.palette, dark: AppInfo.dark),
-          builder: (context, child) => AppShell(child: child),
+          builder: (context, child) => WebFrame(child: AppShell(child: child)),
           home: AuthGate(auth: auth, api: api),
         ),
       );

@@ -989,4 +989,17 @@ const yoStrings = <String, String>{
   'Privacy Policy': 'Ìlànà Àṣírí',
   'Account deletion': 'Pípa àkáǹtì rẹ́',
   'I have read and agree to the Terms of Service, Privacy Policy and Account Deletion Policy.': 'Mo ti kà á, mo sì gbà sí Òfin Iṣẹ́, Ìlànà Àṣírí àti Ìlànà Pípa Àkáǹtì Rẹ́.',
+  // The web app (PWA).
+  'Pay on Bachs\'s secure page': 'Sanwó lórí ojú-ìwé Bachs tó ní ààbò',
+  'It opens in a new tab. Pay there, then come back here.': 'Yóò ṣí nínú táàbù tuntun. Sanwó níbẹ̀, lẹ́yìn náà padà wá síbí.',
+  'Open payment page': 'Ṣí ojú-ìwé ìsanwó',
+  'I\'ve paid': 'Mo ti sanwó',
+  'Add Konduct to your home screen.': 'Fi Konduct sí home screen rẹ.',
+  'Install': 'Fi sórí fóònù',
+  'Add Konduct to your Home Screen: tap Share, then Add to Home Screen.': 'Fi Konduct sí Home Screen rẹ: tẹ Share, lẹ́yìn náà Add to Home Screen.',
+  'When you pay, top up or get a message.': 'Nígbà tí o bá sanwó, fi owó kún tàbí gba iṣẹ́ ránṣẹ́.',
+  'Notifications are on.': 'Ìfitónilétí ti tàn.',
+  'Notifications are blocked. Allow them for this site in your browser settings.': 'A ti dí ìfitónilétí. Gbà wọ́n láàyè fún ojú-òpó yìí nínú settings aṣàwákiri rẹ.',
+  'On iPhone, add Konduct to your Home Screen first, then turn notifications on here.': 'Lórí iPhone, kọ́kọ́ fi Konduct sí Home Screen rẹ, lẹ́yìn náà tan ìfitónilétí níbí.',
+  'To turn them off, use your browser\'s settings for this site.': 'Láti pa wọ́n, lo settings aṣàwákiri rẹ fún ojú-òpó yìí.',
 };

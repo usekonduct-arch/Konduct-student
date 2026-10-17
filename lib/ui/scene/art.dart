@@ -10,8 +10,13 @@ import '../../theme/tokens.dart';
 const _glassDark = Color(0xFF1B222B);
 const _tyre = Color(0xFF07090B);
 
+// Laid out once and kept, so a label's glyphs must all come from bundled fonts (K.fallback for ₦ and ⇄):
+// a font the web app fetches later would never reach a cached label.
 final _textCache = <String, TextPainter>{};
-TextPainter _label(String text, TextStyle style) => _textCache.putIfAbsent('$text${style.hashCode}', () => TextPainter(text: TextSpan(text: text, style: style), textDirection: TextDirection.ltr)..layout());
+TextPainter _label(String text, TextStyle style) => _textCache.putIfAbsent(
+  '$text${style.hashCode}',
+  () => TextPainter(text: TextSpan(text: text, style: style.copyWith(fontFamilyFallback: K.fallback)), textDirection: TextDirection.ltr)..layout(),
+);
 
 Paint _fill(Color c) => Paint()..color = c;
 

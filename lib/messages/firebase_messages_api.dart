@@ -9,10 +9,13 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app/app_info.dart';
+import '../app/pwa.dart';
 import '../l10n/l10n.dart';
 import 'messages_api.dart';
 
 class FirebaseMessagesApi extends MessagesApi {
+  static const _vapidKey = String.fromEnvironment('FCM_VAPID_KEY');
+
   final _db = FirebaseFirestore.instance;
   final _pushes = StreamController<PushEvent>.broadcast();
   bool _pushStarted = false;
@@ -154,18 +157,61 @@ class FirebaseMessagesApi extends MessagesApi {
   Stream<PushEvent> pushes() => _pushes.stream;
 
   @override
+  Future<WebPush?> webPush() async {
+    if (!kIsWeb) return null;
+    final fcm = FirebaseMessaging.instance;
+    try {
+      if (!await fcm.isSupported()) return Pwa.isIos && !Pwa.standalone ? WebPush.needsInstall : null;
+      return switch ((await fcm.getNotificationSettings()).authorizationStatus) {
+        AuthorizationStatus.authorized || AuthorizationStatus.provisional => WebPush.on,
+        AuthorizationStatus.denied || AuthorizationStatus.deniedPermanently => WebPush.blocked,
+        AuthorizationStatus.notDetermined => WebPush.off,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<WebPush?> enableWebPush() async {
+    if (!kIsWeb) return null;
+    try {
+      // First thing, while the browser still counts it as part of the tap.
+      final perm = await FirebaseMessaging.instance.requestPermission();
+      switch (perm.authorizationStatus) {
+        case AuthorizationStatus.denied || AuthorizationStatus.deniedPermanently:
+          return WebPush.blocked;
+        case AuthorizationStatus.notDetermined:
+          return WebPush.off;
+        case AuthorizationStatus.authorized || AuthorizationStatus.provisional:
+      }
+    } catch (_) {
+      return webPush();
+    }
+    _pushStarted = false;
+    await startPush();
+    return WebPush.on;
+  }
+
+  @override
   Future<void> startPush() async {
     if (_pushStarted) return;
     _pushStarted = true;
     final fcm = FirebaseMessaging.instance;
     try {
+      // A browser asked out of the blue (not from a tap) says no for good, or Safari ignores it.
+      if (kIsWeb && await webPush() != WebPush.on) {
+        _pushStarted = false;
+        return;
+      }
       final perm = await fcm.requestPermission();
       if (perm.authorizationStatus == AuthorizationStatus.denied) return;
       FirebaseMessaging.onMessage.listen((m) => _pushes.add(_event(m, tapped: false)));
       FirebaseMessaging.onMessageOpenedApp.listen((m) => _pushes.add(_event(m, tapped: true)));
       final first = await fcm.getInitialMessage();
       if (first != null) _pushes.add(_event(first, tapped: true));
-      final token = await fcm.getToken();
+      // Web: Firebase's default key unless the project's own is given (--dart-define=FCM_VAPID_KEY=...).
+      final token = await fcm.getToken(vapidKey: kIsWeb && _vapidKey.isNotEmpty ? _vapidKey : null);
       if (token != null) await _register(token);
       fcm.onTokenRefresh.listen(_register);
     } catch (e) {
@@ -195,7 +241,7 @@ class FirebaseMessagesApi extends MessagesApi {
       await _callable('registerDevice').call<Object?>({
         'deviceId': await _deviceId(),
         'fcmToken': token,
-        'platform': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
+        'platform': kIsWeb ? 'web' : (defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android'),
         'lang': L10n.instance.lang.code,
       });
     } catch (e) {

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -12,12 +13,22 @@ import 'kit.dart';
 /// returning true closes the screen and gives back that address (a checkout's return URL, say).
 /// Links that aren't web pages (a bank app, the dialler) go to the phone. Returns null if the
 /// person closed it themselves.
-Future<Uri?> openWeb(BuildContext context, String url, {String? title, bool Function(Uri)? closeWhen}) => Navigator.of(context).push<Uri>(
-  MaterialPageRoute(
-    fullscreenDialog: true,
-    builder: (_) => WebScreen(url: url, title: title, closeWhen: closeWhen),
-  ),
-);
+///
+/// In the web app a page can't show another site inside it or see where it goes, so pages open in
+/// a new tab (straight from the tap, so the browser allows it) and a checkout waits on
+/// [WebCheckoutScreen] until the person says they've paid.
+Future<Uri?> openWeb(BuildContext context, String url, {String? title, bool Function(Uri)? closeWhen}) {
+  if (kIsWeb && closeWhen == null) {
+    launchUrl(Uri.parse(url), webOnlyWindowName: '_blank').catchError((_) => false);
+    return Future.value();
+  }
+  return Navigator.of(context).push<Uri>(
+    MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => kIsWeb ? WebCheckoutScreen(url: url, title: title) : WebScreen(url: url, title: title, closeWhen: closeWhen),
+    ),
+  );
+}
 
 class WebScreen extends StatefulWidget {
   const WebScreen({super.key, required this.url, this.title, this.closeWhen});
@@ -153,6 +164,104 @@ class _WebScreenState extends State<WebScreen> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The web app's checkout: the payment page opens in a new tab (from a tap, or the browser would
+/// block it); the person pays there and comes back. Closes with no address, so the top-up screen
+/// asks the backend whether the payment went through, as it does when the in-app page is closed.
+class WebCheckoutScreen extends StatefulWidget {
+  const WebCheckoutScreen({super.key, required this.url, this.title});
+  final String url;
+  final String? title;
+
+  @override
+  State<WebCheckoutScreen> createState() => _WebCheckoutScreenState();
+}
+
+class _WebCheckoutScreenState extends State<WebCheckoutScreen> {
+  late final Uri _at = Uri.parse(widget.url);
+  bool _opened = false;
+
+  void _open() {
+    launchUrl(_at, webOnlyWindowName: '_blank').catchError((_) => false);
+    setState(() => _opened = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final heading = (widget.title?.isNotEmpty ?? false) ? widget.title! : _at.host;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: K.ink,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                child: Row(
+                  children: [
+                    _HeadButton(icon: Icons.close_rounded, label: tr('Close'), onTap: () => Navigator.of(context).pop()),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(heading, maxLines: 1, overflow: TextOverflow.ellipsis, style: KText.body(K.paper).copyWith(fontWeight: FontWeight.w800)),
+                          Row(
+                            children: [
+                              const Icon(Icons.lock_rounded, size: 12, color: K.go),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(_at.host, maxLines: 1, overflow: TextOverflow.ellipsis, style: KText.small(K.muteDark).copyWith(fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    _HeadButton(icon: Icons.open_in_new_rounded, label: 'Open payment page', onTap: _open),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 3),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  child: ColoredBox(
+                    color: K.paper,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(28),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.lock_rounded, size: 44, color: K.go),
+                            const SizedBox(height: 12),
+                            Text('Pay on Bachs\'s secure page', textAlign: TextAlign.center, style: KText.h3(K.ink)),
+                            const SizedBox(height: 6),
+                            Text('It opens in a new tab. Pay there, then come back here.', textAlign: TextAlign.center, style: KText.body(K.mute)),
+                            const SizedBox(height: 18),
+                            KButton(label: 'Open payment page', icon: Icons.open_in_new_rounded, onTap: _open),
+                            if (_opened) ...[
+                              const SizedBox(height: 10),
+                              KButton(label: 'I\'ve paid', dark: true, onTap: () => Navigator.of(context).pop()),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

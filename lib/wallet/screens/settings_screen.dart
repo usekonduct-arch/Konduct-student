@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
 import '../../app/home_widget_sync.dart';
+import '../../messages/messages_api.dart' show WebPush;
 import '../../l10n/l10n.dart';
 import '../../l10n/language_sheet.dart';
 import '../../l10n/text.dart';
@@ -38,6 +40,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _bioOn = false;
   bool _widgetBalance = false;
 
+  /// Web app only: notifications in this browser (the phones ask when the app starts).
+  WebPush? _webPush;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +52,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     HomeWidgetSync.showsBalance().then((v) {
       if (mounted) setState(() => _widgetBalance = v);
     });
+    widget.api.messages.webPush().then((v) {
+      if (mounted) setState(() => _webPush = v);
+    });
+  }
+
+  Future<void> _setWebPush(bool on) async {
+    if (!on) return showSnack(context, 'To turn them off, use your browser\'s settings for this site.');
+    if (_webPush == WebPush.needsInstall) {
+      return showSnack(context, 'On iPhone, add Konduct to your Home Screen first, then turn notifications on here.');
+    }
+    final now = await widget.api.messages.enableWebPush();
+    if (!mounted) return;
+    setState(() => _webPush = now);
+    if (now == WebPush.on) showSnack(context, 'Notifications are on.');
+    if (now == WebPush.blocked) showSnack(context, 'Notifications are blocked. Allow them for this site in your browser settings.');
   }
 
   /// Fingerprint payments: on needs the PIN once (kept in the phone's secure store) and a fingerprint.
@@ -204,14 +224,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: 'Share your code. You both get credit after their first ride.',
                 onTap: () => pushScreen(context, InviteScreen(api: widget.api)),
               ),
-              _toggle(
-                context,
-                Icons.widgets_rounded,
-                'Balance on home-screen widget',
-                subtitle: 'Off: the widget only shows Scan to pay.',
-                value: _widgetBalance,
-                onChanged: _setWidgetBalance,
-              ),
+              // The home-screen widget is Android's; the web app has notifications to switch on instead.
+              if (!kIsWeb)
+                _toggle(
+                  context,
+                  Icons.widgets_rounded,
+                  'Balance on home-screen widget',
+                  subtitle: 'Off: the widget only shows Scan to pay.',
+                  value: _widgetBalance,
+                  onChanged: _setWidgetBalance,
+                ),
+              if (_webPush != null)
+                _toggle(
+                  context,
+                  Icons.notifications_rounded,
+                  'Notifications',
+                  subtitle: 'When you pay, top up or get a message.',
+                  value: _webPush == WebPush.on,
+                  onChanged: _setWebPush,
+                ),
               const SizedBox(height: 14),
               Text('YOUR MONTHS', style: KText.kicker(p.subtle)),
               const SizedBox(height: 8),

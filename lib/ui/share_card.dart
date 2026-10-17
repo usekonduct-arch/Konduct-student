@@ -1,16 +1,15 @@
-import 'dart:io' show File;
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../l10n/text.dart';
 import '../theme/tokens.dart';
 import 'kit.dart';
+import 'share_file.dart';
 
 /// Story cards are drawn at this size and saved at 3x: 1080 × 1920, Instagram's story size.
 const shareCardSize = Size(360, 640);
@@ -45,12 +44,10 @@ class _ShareCardSheetState extends State<_ShareCardSheet> {
       final image = await boundary.toImage(pixelRatio: 3);
       final png = (await image.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
       image.dispose();
-      final dir = await getTemporaryDirectory();
       final name = widget.fileName.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '-');
-      final file = File('${dir.path}/$name.png');
-      await file.writeAsBytes(png, flush: true);
+      final file = await shareFile(png, name: '$name.png', mimeType: 'image/png');
       await Clipboard.setData(ClipboardData(text: widget.caption));
-      await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: 'image/png')], text: widget.caption));
+      await SharePlus.instance.share(ShareParams(files: [file], text: widget.caption));
       if (mounted) Navigator.of(context).pop();
       messenger
         ..hideCurrentSnackBar()

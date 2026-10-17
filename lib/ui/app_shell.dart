@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app/app_info.dart';
 import '../app/connection.dart';
+import '../app/pwa.dart';
 import '../app/version_check.dart';
 import '../l10n/l10n.dart';
 import '../l10n/text.dart';
@@ -49,15 +52,37 @@ class _StatusStrip extends StatefulWidget {
 }
 
 class _StatusStripState extends State<_StatusStrip> {
+  static const _installKey = 'konduct.installHintDismissed';
+
   bool _updateDismissed = false;
+
+  /// The web app in a browser tab offers to be installed until closed once; null while reading that.
+  bool? _installDismissed = kIsWeb ? null : true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb) return;
+    SharedPreferences.getInstance().then((p) => p.getBool(_installKey) ?? false, onError: (_) => false).then((v) {
+      if (mounted) setState(() => _installDismissed = v);
+    });
+  }
+
+  void _dismissInstall() {
+    setState(() => _installDismissed = true);
+    SharedPreferences.getInstance().then((p) => p.setBool(_installKey, true)).catchError((_) => false);
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([Connection.instance.online, VersionCheck.instance]),
+      listenable: Listenable.merge([Connection.instance.online, VersionCheck.instance, Pwa.installable]),
       builder: (context, _) {
         final offline = Connection.instance.isOffline;
         final update = VersionCheck.instance.canUpdate && VersionCheck.instance.updateUrl != null && !_updateDismissed;
+        // Chrome offers an install dialog; on an iPhone it's Share, then Add to Home Screen.
+        final canPrompt = Pwa.installable.value;
+        final install = _installDismissed == false && !Pwa.standalone && (canPrompt || Pwa.isIos);
         final Widget? pill = offline
             ? _Pill(
                 key: const ValueKey('offline'),
@@ -74,6 +99,16 @@ class _StatusStripState extends State<_StatusStrip> {
                 action: 'Update',
                 onAction: () => _open(VersionCheck.instance.updateUrl!),
                 onClose: () => setState(() => _updateDismissed = true),
+              )
+            : install
+            ? _Pill(
+                key: const ValueKey('install'),
+                icon: Icons.install_mobile_rounded,
+                color: K.yellow,
+                text: canPrompt ? 'Add Konduct to your home screen.' : 'Add Konduct to your Home Screen: tap Share, then Add to Home Screen.',
+                action: canPrompt ? 'Install' : null,
+                onAction: Pwa.install,
+                onClose: _dismissInstall,
               )
             : null;
         return AnimatedSwitcher(

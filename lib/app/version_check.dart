@@ -21,7 +21,8 @@ class VersionCheck extends ChangeNotifier {
 
   /// [live]: false in demo mode, where there is no backend to ask.
   Future<void> start({required bool live}) async {
-    if (_sub != null) return;
+    // The web app is always the latest deploy (web/sw.js fetches it fresh); the update links are for the APK.
+    if (_sub != null || kIsWeb) return;
     try {
       build = int.tryParse((await PackageInfo.fromPlatform()).buildNumber);
     } catch (_) {}

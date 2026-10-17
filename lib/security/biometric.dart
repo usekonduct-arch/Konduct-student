@@ -58,7 +58,7 @@ class BiometricPin {
 
   /// A PIN is saved for the signed-in person.
   Future<bool> enabled() async {
-    if (uid == null || _silent) return false;
+    if (uid == null || _silent || kIsWeb) return false;
     if (_known != null) return _known!;
     try {
       return _known = await _store.containsKey(key: _key).timeout(_patience);
