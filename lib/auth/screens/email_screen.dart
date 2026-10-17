@@ -7,6 +7,7 @@ import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
 import '../auth_repository.dart';
 import '../password_ui.dart';
+import '../../ui/legal.dart';
 
 enum EmailMode { signIn, signUp }
 
@@ -113,6 +114,7 @@ class _EmailScreenState extends State<EmailScreen> {
           KButton(label: _signUp ? 'Create account' : 'Sign in', icon: Icons.arrow_forward_rounded, loading: _busy, onTap: _ready ? _submit : null),
           const SizedBox(height: 10),
           Text('By continuing you agree to Konduct\'s Terms and Privacy Policy.', textAlign: TextAlign.center, style: KText.small(p.subtle).copyWith(fontSize: 12)),
+          const LegalLinks(center: true),
         ],
       ),
       child: SingleChildScrollView(

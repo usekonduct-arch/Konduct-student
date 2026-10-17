@@ -33,4 +33,11 @@ abstract final class AppConfig {
   static const campusId = 'uniosun';
   static const campusName = 'UNIOSUN';
   static const campusPlace = 'Osun State University';
+
+  /// The website, where the Terms, Privacy Policy and Account Deletion Policy live.
+  static const siteUrl = 'https://konduct.com.ng';
+
+  /// The legal documents' version people agree to at sign-up. Must match LEGAL_VERSION in
+  /// konduct-landing/src/content/legal.ts; the backend records it on the account.
+  static const legalVersion = '2026-10-17';
 }

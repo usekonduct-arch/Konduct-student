@@ -985,4 +985,8 @@ const yoStrings = <String, String>{
   'BROUGHT TO YOU BY': 'LÁTI ỌWỌ́',
   'The sponsored ride offer just ended. Scan again to see your fare.': 'Ìfilọ̀ ìrìn ọ̀fẹ́ ti parí. Sikáànù lẹ́ẹ̀kan sí i láti rí owó ọkọ̀ rẹ.',
   'A sponsor paid for this ride, so nothing left your wallet. If something went wrong, tell support.': 'Onígbọ̀wọ́ ló san owó ìrìn yìí, nítorí náà kò sí owó tó jáde nínú àpò rẹ. Bí nǹkan bá ṣẹlẹ̀, sọ fún ẹ̀ka ìrànlọ́wọ́.',
+  'Terms of Service': 'Òfin Iṣẹ́',
+  'Privacy Policy': 'Ìlànà Àṣírí',
+  'Account deletion': 'Pípa àkáǹtì rẹ́',
+  'I have read and agree to the Terms of Service, Privacy Policy and Account Deletion Policy.': 'Mo ti kà á, mo sì gbà sí Òfin Iṣẹ́, Ìlànà Àṣírí àti Ìlànà Pípa Àkáǹtì Rẹ́.',
 };

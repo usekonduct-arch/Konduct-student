@@ -7,6 +7,7 @@ import '../../theme/tokens.dart';
 import '../../ui/field.dart';
 import '../../ui/flow_scaffold.dart';
 import '../../ui/kit.dart';
+import '../../ui/legal.dart';
 import '../auth_repository.dart';
 
 /// FR-AUTH-01/02: name + student ID, one account per student ID per campus.
@@ -64,7 +65,6 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final p = Palette.of(context);
     return FlowScaffold(
       kicker: 'Almost there',
       title: 'Tell us who\'s riding.',
@@ -76,41 +76,11 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
         children: [
           Entrance(
             delay: const Duration(milliseconds: 380),
-            child: Pressable(
-              scale: 0.98,
-              onTap: () => setState(() => _agree = !_agree),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 260),
-                      curve: K.springy,
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: _agree ? K.ink : p.field,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: _agree ? K.ink : p.border, width: 2),
-                      ),
-                      child: AnimatedScale(
-                        scale: _agree ? 1 : 0,
-                        duration: const Duration(milliseconds: 300),
-                        curve: K.springy,
-                        child: const Icon(Icons.check_rounded, size: 18, color: K.yellow),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'I agree to the Terms and Privacy Policy, and to Konduct checking my student ID with ${AppConfig.campusName}.',
-                        style: KText.small(p.subtle),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            child: AgreeBox(
+              label: 'I agree to the Terms and Privacy Policy, and to Konduct checking my student ID with ${AppConfig.campusName}.',
+              value: _agree,
+              enabled: !_busy,
+              onChanged: (v) => setState(() => _agree = v),
             ),
           ),
           const SizedBox(height: 8),

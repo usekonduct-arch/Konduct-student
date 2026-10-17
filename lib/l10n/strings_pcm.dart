@@ -985,4 +985,8 @@ const pcmStrings = <String, String>{
   'BROUGHT TO YOU BY': 'NA THEM BRING AM',
   'The sponsored ride offer just ended. Scan again to see your fare.': 'The free ride offer don end. Scan again make you see your fare.',
   'A sponsor paid for this ride, so nothing left your wallet. If something went wrong, tell support.': 'Na sponsor pay for this ride, so your wallet no lose anything. If something no correct, tell support.',
+  'Terms of Service': 'Terms of Service',
+  'Privacy Policy': 'Privacy Policy',
+  'Account deletion': 'How to delete account',
+  'I have read and agree to the Terms of Service, Privacy Policy and Account Deletion Policy.': 'I don read and I agree to the Terms of Service, Privacy Policy and the rules for deleting account.',
 };

@@ -985,4 +985,8 @@ const haStrings = <String, String>{
   'BROUGHT TO YOU BY': 'DAGA',
   'The sponsored ride offer just ended. Scan again to see your fare.': 'Tayin tafiya kyauta ya ƙare. Sake yin sikan don ganin kuɗin motarka.',
   'A sponsor paid for this ride, so nothing left your wallet. If something went wrong, tell support.': 'Mai ɗaukar nauyi ne ya biya wannan tafiya, don haka babu kuɗin da ya fita daga walat ɗinka. Idan wani abu ya faru, faɗa wa sashen tallafi.',
+  'Terms of Service': 'Sharuɗɗan Sabis',
+  'Privacy Policy': 'Manufar Sirri',
+  'Account deletion': 'Goge asusu',
+  'I have read and agree to the Terms of Service, Privacy Policy and Account Deletion Policy.': 'Na karanta kuma na amince da Sharuɗɗan Sabis, Manufar Sirri da Manufar Goge Asusu.',
 };
