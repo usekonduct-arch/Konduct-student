@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Flutter SDK fetched by tool/vercel_build.sh on Vercel
+/.flutter/

@@ -2,7 +2,7 @@
 #   ./tool/build_web.ps1                         against the Render backend
 #   ./tool/build_web.ps1 -Demo                   demo mode, no Firebase (for trying it out)
 #   $env:FCM_VAPID_KEY = '...'; ./tool/build_web.ps1   with the project's own Web Push key
-# Deploy: vercel deploy build/web --prod (build/web/vercel.json sets the headers).
+# A local build, to try it out. Vercel builds the site itself from GitHub (vercel.json, tool/vercel_build.sh).
 param(
   [string]$BackendUrl = 'https://konduct-backend.onrender.com',
   [switch]$Demo

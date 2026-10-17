@@ -1,5 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "echo 'Flutter is installed by the build step'",
+  "buildCommand": "bash tool/vercel_build.sh",
+  "outputDirectory": "build/web",
   "cleanUrls": false,
   "trailingSlash": false,
   "headers": [
