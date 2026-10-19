@@ -100,6 +100,7 @@ const pcmStrings = <String, String>{
   'Card / bank transfer': 'Card / bank transfer',
   'Card or bank transfer, on a secure Bachs page.': 'Card or bank transfer, for secure Bachs page.',
   'Cash riders aren\'t counted. Clears on its own 15 minutes after the last scan.': 'We no dey count people wey pay cash. E go clear by itself 15 minutes after the last scan.',
+  'Cash at the park': 'Dem pay cash for park',
   'Cash still works on every bus. Switch when it suits you.': 'Cash still dey work for every bus. Switch when e good for you.',
   'Cash you didn\'t need': 'Cash wey you no need',
   'Change': 'Change',

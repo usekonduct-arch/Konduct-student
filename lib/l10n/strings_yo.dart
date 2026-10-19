@@ -100,6 +100,7 @@ const yoStrings = <String, String>{
   'Card / bank transfer': 'Káàdì / ìfiránṣẹ́ báǹkì',
   'Card or bank transfer, on a secure Bachs page.': 'Káàdì tàbí ìfiránṣẹ́ báǹkì, lórí ojú-ìwé Bachs tó ní ààbò.',
   'Cash riders aren\'t counted. Clears on its own 15 minutes after the last scan.': 'A kò ka àwọn tó san owó ẹ̀yọ. Ó máa ń parẹ́ fúnra rẹ̀ ní ìṣẹ́jú 15 lẹ́yìn sikáànù tó kẹ́yìn.',
+  'Cash at the park': 'Owó ní ọwọ́ ní ibùdókọ̀',
   'Cash still works on every bus. Switch when it suits you.': 'Owó ẹ̀yọ ṣì ń ṣiṣẹ́ lórí gbogbo bọ́ọ̀sì. Yípadà nígbà tó bá wù ọ́.',
   'Cash you didn\'t need': 'Owó ẹ̀yọ tí o kò nílò',
   'Change': 'Yí i padà',

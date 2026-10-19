@@ -100,6 +100,7 @@ const haStrings = <String, String>{
   'Card / bank transfer': 'Kati / tura kuɗi ta banki',
   'Card or bank transfer, on a secure Bachs page.': 'Kati ko tura kuɗi ta banki, a shafin Bachs mai tsaro.',
   'Cash riders aren\'t counted. Clears on its own 15 minutes after the last scan.': 'Ba a ƙirga masu biyan tsabar kuɗi ba. Yana sharewa da kansa minti 15 bayan sikan na ƙarshe.',
+  'Cash at the park': 'Kuɗin hannu a tasha',
   'Cash still works on every bus. Switch when it suits you.': 'Tsabar kuɗi har yanzu tana aiki a kowace bas. Ku sauya lokacin da ya dace da ku.',
   'Cash you didn\'t need': 'Tsabar kuɗin da ba ku buƙata ba',
   'Change': 'Canza',
