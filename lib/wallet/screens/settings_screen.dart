@@ -172,7 +172,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   children: [
                     _info(context, Icons.alternate_email_rounded, 'Email', widget.session.email),
-                    _info(context, Icons.badge_rounded, 'Student ID', prof?.studentId ?? '…'),
+                    if (prof != null && prof.studentId.isNotEmpty) _info(context, Icons.badge_rounded, 'Student ID', prof.studentId),
                     _info(context, Icons.school_rounded, 'Campus', AppConfig.campusName),
                     _info(context, Icons.verified_user_rounded, 'Limits', prof == null ? '…' : 'Tier ${prof.kycTier}'),
                   ],

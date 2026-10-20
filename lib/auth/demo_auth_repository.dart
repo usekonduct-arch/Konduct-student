@@ -5,7 +5,6 @@ import 'auth_repository.dart';
 /// Stand-in used without Firebase (`--dart-define=KONDUCT_DEMO=true`) so every screen can be
 /// tried on a device. Any email signs up; `taken@konduct.com.ng` plays an email already in use.
 /// Signing in needs the password the account was created with in this session.
-/// Student ID "DUP123" plays an ID that is already registered.
 class DemoAuthRepository implements AuthRepository {
   final _ctrl = StreamController<Session?>.broadcast();
   final _accounts = <String, String>{};
@@ -45,11 +44,8 @@ class DemoAuthRepository implements AuthRepository {
   Future<void> sendPasswordReset(String email) => _lag(500);
 
   @override
-  Future<void> registerRider({required String fullName, required String studentId}) async {
+  Future<void> registerRider({required String fullName}) async {
     await _lag(1100);
-    if (studentId.toUpperCase() == 'DUP123') {
-      throw const AuthException('already-exists', 'That student ID is already on another account. If it\'s yours, talk to a Konduct agent.');
-    }
     final s = _session!;
     _emit(Session(uid: s.uid, email: s.email, role: 'rider', name: fullName));
   }

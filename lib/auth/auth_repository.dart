@@ -36,7 +36,7 @@ abstract class AuthRepository {
   Future<void> sendPasswordReset(String email);
 
   /// FR-AUTH-01/02: name + student ID; the backend makes this account a rider.
-  Future<void> registerRider({required String fullName, required String studentId});
+  Future<void> registerRider({required String fullName});
 
   Future<void> setPin(String pin);
 

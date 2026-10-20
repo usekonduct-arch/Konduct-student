@@ -48,8 +48,8 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> registerRider({required String fullName, required String studentId}) async {
-    await _call('registerRider', {'fullName': fullName, 'studentId': studentId, 'legalVersion': AppConfig.legalVersion});
+  Future<void> registerRider({required String fullName}) async {
+    await _call('registerRider', {'fullName': fullName, 'legalVersion': AppConfig.legalVersion});
     await _auth.currentUser?.getIdToken(true);
   }
 

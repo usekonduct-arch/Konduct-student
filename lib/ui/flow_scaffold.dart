@@ -7,6 +7,9 @@ import 'kit.dart';
 
 /// Layout shared by every sign-up step: back button, animated progress bar,
 /// staggered heading, body, and a bottom area that sits above the system bar.
+///
+/// While the keyboard is up (or the screen is short) the heading folds away, so the
+/// fields being typed into keep the room instead of being squeezed off screen.
 class FlowScaffold extends StatelessWidget {
   const FlowScaffold({
     super.key,
@@ -38,8 +41,12 @@ class FlowScaffold extends StatelessWidget {
       child: Scaffold(
         backgroundColor: p.bg,
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: LayoutBuilder(builder: (context, box) {
+            // viewInsets covers native keyboards; the height check covers mobile browsers,
+            // which shrink the page instead of reporting an inset.
+            final compact = MediaQuery.viewInsetsOf(context).bottom > 0 || box.maxHeight < 560;
+            return Padding(
+            padding: EdgeInsets.fromLTRB(20, 8, 20, compact ? 8 : 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -67,19 +74,32 @@ class FlowScaffold extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 22),
-                if (kicker != null) Entrance(child: Text(kicker!.toUpperCase(), style: KText.kicker(p.subtle))),
-                if (kicker != null) const SizedBox(height: 10),
-                Entrance(delay: const Duration(milliseconds: 60), child: Text(title, style: KText.title(p.text))),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 10),
-                  Entrance(delay: const Duration(milliseconds: 120), child: DefaultTextStyle(style: KText.body(p.subtle), child: subtitle!)),
-                ],
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: K.outExpo,
+                  alignment: Alignment.topCenter,
+                  child: compact
+                      ? const SizedBox(width: double.infinity)
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const SizedBox(height: 22),
+                            if (kicker != null) Entrance(child: Text(kicker!.toUpperCase(), style: KText.kicker(p.subtle))),
+                            if (kicker != null) const SizedBox(height: 10),
+                            Entrance(delay: const Duration(milliseconds: 60), child: Text(title, style: KText.title(p.text))),
+                            if (subtitle != null) ...[
+                              const SizedBox(height: 10),
+                              Entrance(delay: const Duration(milliseconds: 120), child: DefaultTextStyle(style: KText.body(p.subtle), child: subtitle!)),
+                            ],
+                          ],
+                        ),
+                ),
                 Expanded(child: child),
                 ?bottom,
               ],
             ),
-          ),
+          );
+          }),
         ),
       ),
     );

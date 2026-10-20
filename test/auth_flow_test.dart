@@ -94,8 +94,9 @@ void main() {
     await account(t, email: 'ada@uniosun.edu.ng', password: 'ride-the-bus-1');
     expect(auth.stage, Stage.riderProfile);
 
-    await t.enterText(find.byType(TextField).at(0), 'Adaeze Okafor');
-    await t.enterText(find.byType(TextField).at(1), 'UNI/2023/04571');
+    expect(find.textContaining('matric'), findsNothing);
+    await t.enterText(find.byType(TextField).at(0), 'Adaeze');
+    await t.enterText(find.byType(TextField).at(1), 'Okafor');
     await t.tap(find.textContaining('I agree'));
     FocusManager.instance.primaryFocus?.unfocus();
     await settle(t, 600);
@@ -165,7 +166,7 @@ void main() {
     await settle(t, 1500);
   });
 
-  testWidgets('a duplicate student ID is refused with a message', (t) async {
+  testWidgets('sign-up asks for a first and a last name, and needs both', (t) async {
     phoneSize(t);
     final repo = DemoAuthRepository();
     final auth = AuthController(repo);
@@ -174,15 +175,24 @@ void main() {
     await t.runAsync(() => repo.signUp('ade@uniosun.edu.ng', 'ride-the-bus-1'));
     await settle(t, 1500);
 
-    await t.enterText(find.byType(TextField).at(0), 'Ade Bello');
-    await t.enterText(find.byType(TextField).at(1), 'DUP123');
+    expect(find.text('First name'), findsOneWidget);
+    expect(find.text('Last name'), findsOneWidget);
+    expect(find.byType(TextField), findsNWidgets(2));
+    await t.enterText(find.byType(TextField).at(0), 'Ade');
     await t.tap(find.textContaining('I agree'));
     FocusManager.instance.primaryFocus?.unfocus();
     await settle(t, 600);
     await t.tap(find.text('Continue'));
     await settle(t, 2000);
     expect(auth.stage, Stage.riderProfile);
-    expect(find.textContaining('already on another account'), findsOneWidget);
+
+    await t.enterText(find.byType(TextField).at(1), 'Bello');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await settle(t, 600);
+    await t.tap(find.text('Continue'));
+    await settle(t, 2200);
+    expect(auth.stage, Stage.pin);
+    expect(auth.session?.name, 'Ade Bello');
 
     await t.pumpWidget(const SizedBox());
     await settle(t, 1500);

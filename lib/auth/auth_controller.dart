@@ -69,7 +69,7 @@ class AuthController extends ChangeNotifier {
 
   Future<void> sendPasswordReset(String email) => repo.sendPasswordReset(email);
 
-  Future<void> registerRider(String fullName, String studentId) => repo.registerRider(fullName: fullName, studentId: studentId);
+  Future<void> registerRider(String fullName) => repo.registerRider(fullName: fullName);
 
   Future<void> setPin(String pin) => repo.setPin(pin);
 
