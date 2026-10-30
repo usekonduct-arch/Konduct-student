@@ -15,6 +15,8 @@ import 'auth_flow_test.dart' show keypad, loadFonts, phoneSize, settle;
 
 Future<DemoRiderApi> openHome(WidgetTester t) async {
   phoneSize(t);
+  // Tall enough that the recent list sits on screen below the home cards.
+  t.view.physicalSize = const Size(1080, 2640);
   final api = DemoRiderApi();
   await t.pumpWidget(
     MaterialApp(

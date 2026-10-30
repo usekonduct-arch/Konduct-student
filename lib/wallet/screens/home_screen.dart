@@ -18,6 +18,7 @@ import '../rider_api.dart';
 import '../wallet_ui.dart';
 import 'activity_screen.dart';
 import 'buses_screen.dart';
+import 'campus_map_screen.dart';
 import 'invite_screen.dart';
 import 'rate_sheet.dart';
 import 'scan_screen.dart';
@@ -110,6 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _scan() => pushScreen(context, ScanScreen(api: api));
   void _topUp() => pushScreen(context, TopUpScreen(api: api));
   void _withdraw() => pushScreen(context, WithdrawScreen(api: api));
+  void _map() => pushScreen(context, CampusMapScreen(api: api));
   void _open(Activity a) => openActivity(context, api, a);
 
   /// Screens an ad, message, link, shortcut or widget can open with an app: link.
@@ -120,6 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'withdraw': (_) => _withdraw(),
     'buses': (park) => pushScreen(context, BusesScreen(api: api, parkId: park.isEmpty ? null : park)),
     'invite': (_) => pushScreen(context, InviteScreen(api: api)),
+    'map': (_) => _map(),
     'activity': (_) => pushScreen(context, ActivityScreen(api: api)),
     'account': (_) => pushScreen(context, SettingsScreen(api: api, session: widget.session, onSignOut: widget.onSignOut)),
   };
@@ -244,6 +247,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                             ),
                           ),
+                          const SizedBox(height: 14),
+                          _CampusMapCard(onTap: _map),
                           const SizedBox(height: 28),
                           Row(
                             children: [
@@ -473,6 +478,39 @@ class _PausedBanner extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _CampusMapCard extends StatelessWidget {
+  const _CampusMapCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return Pressable(
+      scale: 0.97,
+      onTap: onTap,
+      child: Panel(
+        padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+        child: Row(
+          children: [
+            Icon(Icons.map_rounded, color: p.text),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Campus map', style: KText.body(p.text).copyWith(fontWeight: FontWeight.w800)),
+                  Text('Find faculties, hostels, offices and bus parks.', style: KText.small(p.subtle)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: p.subtle),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _Note extends StatelessWidget {

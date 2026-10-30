@@ -130,6 +130,12 @@ class DemoRiderApi implements RiderApi {
     ]);
   }
 
+  @override
+  Stream<List<CampusPlace>> campusPlaces() => Stream.value(const [
+    CampusPlace(id: 'demo-library', name: 'Sample library', category: 'academic', note: 'A sample place for the demo.', lat: 7.7722, lng: 4.5577),
+    CampusPlace(id: 'demo-hostel', name: 'Sample hostel', category: 'hostel', lat: 7.7702, lng: 4.5582),
+  ]);
+
   /// Four buses: the sample sticker's bus and another at Shasha park, one at Main Campus park
   /// with every seat free, and a full one on the road.
   @override

@@ -1,7 +1,7 @@
 name: konduct_student
 description: "Konduct for students: pay campus rides with a scan."
 publish_to: 'none'
-version: 0.3.0+3
+version: 0.4.0+4
 
 environment:
   sdk: ^3.10.3
@@ -33,6 +33,8 @@ dependencies:
   home_widget: ^0.10.0
   app_links: ^7.0.0
   cached_network_image: ^3.4.1
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
   # Browser APIs for the web app (install prompt), used only in lib/app/pwa_web.dart.
   web: ^1.1.1
 

@@ -165,6 +165,15 @@ class Park {
   bool staleAt(DateTime now) => updatedAt == null || now.difference(updatedAt!) > const Duration(hours: 2);
 }
 
+/// landmarks/{id} shown to students, or a park with a map pin (category 'park').
+class CampusPlace {
+  const CampusPlace({required this.id, required this.name, required this.category, required this.lat, required this.lng, this.note = ''});
+  final String id, name, category, note;
+  final double lat, lng;
+
+  factory CampusPlace.park(Park p) => CampusPlace(id: 'park_${p.id}', name: p.name, category: 'park', lat: p.lat!, lng: p.lng!, note: p.location);
+}
+
 /// payConfirm's answer.
 class PayResult {
   const PayResult({

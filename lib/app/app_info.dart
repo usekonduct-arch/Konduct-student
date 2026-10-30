@@ -14,7 +14,7 @@ abstract final class AppInfo {
   static const linkHosts = {'konduct.com.ng', 'www.konduct.com.ng'};
 
   /// Screens a link, shortcut or widget may open (the home screen's app: actions).
-  static const linkScreens = {'pay', 'scan', 'topup', 'buses', 'activity', 'account', 'withdraw', 'invite'};
+  static const linkScreens = {'pay', 'scan', 'topup', 'buses', 'activity', 'account', 'withdraw', 'invite', 'map'};
 
   /// Long-press shortcuts on the app icon: action, English title, Android drawable.
   static const shortcuts = [

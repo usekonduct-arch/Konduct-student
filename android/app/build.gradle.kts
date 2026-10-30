@@ -9,6 +9,10 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val keyProperties = java.util.Properties().apply {
+    rootProject.file("key.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+
 android {
     namespace = "com.konduct.konduct"
     compileSdk = flutter.compileSdkVersion
@@ -33,11 +37,21 @@ android {
     }
 
 
+    signingConfigs {
+        // Play upload key: android/key.properties, never committed. Without it, debug keys for local runs.
+        if (keyProperties.isNotEmpty()) {
+            create("release") {
+                storeFile = file(keyProperties.getProperty("storeFile"))
+                storePassword = keyProperties.getProperty("storePassword")
+                keyAlias = keyProperties.getProperty("keyAlias")
+                keyPassword = keyProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 }

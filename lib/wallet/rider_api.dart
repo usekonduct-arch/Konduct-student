@@ -38,6 +38,9 @@ abstract class RiderApi {
   /// Parks shown in the app and how many buses are there, by name.
   Stream<List<Park>> parks();
 
+  /// Landmarks staff have put on the students' campus map, by name. Parks with a pin are added by the screen.
+  Stream<List<CampusPlace>> campusPlaces();
+
   /// Every bus on the live board: where it's checked in, where it's going, seats paid by scan.
   Stream<List<LiveBus>> buses();
 
