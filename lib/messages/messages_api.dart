@@ -152,7 +152,7 @@ abstract class MessagesApi {
   /// Pushes that arrive while the app is open, and ones the person tapped.
   Stream<PushEvent> pushes();
 
-  /// What this phone has already shown, so a popup never shows twice.
+  /// What this phone has already shown: a popup message shows once, a popup ad once a day.
   final seen = SeenStore();
 
   /// Konduct's social handles and hashtag, for the caption when someone shares a ride or their
@@ -355,6 +355,20 @@ class SeenStore {
   }
 
   bool has(String id) => _ids.contains(id);
+
+  /// Whether [addToday] marked [id] today, by the phone's clock.
+  bool hasToday(String id) => _ids.contains('$id@${_today()}');
+
+  /// Marks [id] as shown today. Only its latest day is kept, so a daily popup holds one id.
+  Future<void> addToday(String id) {
+    _ids.removeWhere((x) => x.startsWith('$id@'));
+    return add('$id@${_today()}');
+  }
+
+  static String _today() {
+    final d = DateTime.now();
+    return '${d.year}-${d.month}-${d.day}';
+  }
 
   /// Fires whenever an id is added.
   Stream<void> get changes => _changed.stream;

@@ -750,8 +750,8 @@ class _Banner extends StatelessWidget {
   }
 }
 
-/// Wraps a home screen: opens popup messages and popup ads (once each), shows a banner when a
-/// push arrives while the app is open, and follows pushes the person tapped.
+/// Wraps a home screen: opens popup messages (once) and popup ads (once a day), shows a banner when
+/// a push arrives while the app is open, and follows pushes the person tapped.
 class MessagesHost extends StatefulWidget {
   const MessagesHost({super.key, required this.api, required this.actions, required this.child, this.quietKinds = const {}});
   final MessagesApi api;
@@ -809,7 +809,7 @@ class _MessagesHostState extends State<MessagesHost> {
     if (_showing || !_inFront) return;
     final notice = _notices.where((n) => n.popup && !n.read && !api.seen.has('pop:${n.key}')).firstOrNull;
     final now = DateTime.now();
-    final ad = notice != null ? null : _ads.where((a) => a.placement == AdPlacement.popup && a.liveAt(now) && !api.seen.has('ad:${a.id}')).firstOrNull;
+    final ad = notice != null ? null : _ads.where((a) => a.placement == AdPlacement.popup && a.liveAt(now) && !api.seen.hasToday('ad:${a.id}')).firstOrNull;
     if (notice == null && ad == null) return;
     _showing = true;
     HapticFeedback.lightImpact();
@@ -823,7 +823,7 @@ class _MessagesHostState extends State<MessagesHost> {
           builder: (_) => _NoticePopup(notice: notice, actions: widget.actions),
         );
       } else {
-        await api.seen.add('ad:${ad!.id}');
+        await api.seen.addToday('ad:${ad!.id}');
         if (!mounted) return;
         api.tracker.view('ad', ad.id);
         await showDialog<void>(

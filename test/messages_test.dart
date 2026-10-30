@@ -96,7 +96,7 @@ void main() {
     await done(t);
   });
 
-  testWidgets('a popup ad opens once, with its buttons', (t) async {
+  testWidgets('a popup ad opens once a day, with its buttons', (t) async {
     final messages = DemoMessagesApi(
       ads: const [
         Ad(
@@ -116,7 +116,7 @@ void main() {
     await t.tap(find.bySemanticsLabel('Close').last);
     await settle(t, 3000);
     expect(find.text('Weekend promo'), findsNothing);
-    expect(messages.seen.has('ad:pop1'), isTrue);
+    expect(messages.seen.hasToday('ad:pop1'), isTrue);
     await done(t);
   });
 
