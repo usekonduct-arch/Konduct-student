@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -9,7 +11,7 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val keyProperties = java.util.Properties().apply {
+val keyProperties = Properties().apply {
     rootProject.file("key.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
 
