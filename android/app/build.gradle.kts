@@ -30,7 +30,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.konduct.rider"
+        applicationId = "ng.com.konduct.app"
         // SRS 2.3: Android 8+.
         minSdk = 26
         targetSdk = flutter.targetSdkVersion

@@ -4,8 +4,8 @@ The rider app: students fund a wallet and pay campus shuttle and bike fares by s
 
 | | |
 | --- | --- |
-| App id | `com.konduct.rider` |
-| Firebase | project `konduct-10ffb`, app `1:1046053007846:android:11cc874f67b1250807a627` |
+| App id | `ng.com.konduct.app` |
+| Firebase | project `konduct-10ffb`, app `1:1046053007846:android:f5ce91269664ca5307a627` |
 | Backend | [Konduct-backend](https://github.com/usekonduct-arch/Konduct-backend) (Cloud Functions, region europe-west1) |
 | Sister app | [Konduct Driver](https://github.com/usekonduct-arch/Konduct-Driver) |
 
@@ -58,5 +58,5 @@ step by hand, or move it into a shared package once there is a repo for one.
 ## Re-generating the Firebase config
 
 ```
-flutterfire configure --project=konduct-10ffb --platforms=android --android-package-name=com.konduct.rider --out=lib/firebase/options.dart --android-out=android/app/google-services.json --yes
+flutterfire configure --project=konduct-10ffb --platforms=android --android-package-name=ng.com.konduct.app --out=lib/firebase/options.dart --android-out=android/app/google-services.json --yes
 ```

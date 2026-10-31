@@ -120,7 +120,7 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
                 interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
               ),
               children: [
-                TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.konduct.rider', maxZoom: 19),
+                TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'ng.com.konduct.app', maxZoom: 19),
                 MarkerLayer(
                   markers: [
                     for (final place in shown)
